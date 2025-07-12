@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>RITMO DIRECTO</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Sidebar de álbumes -->
+        <div class="sidebar">
+            <h2>Álbumes</h2>
+            <div id="listaAlbumes"></div> <!-- Cambio aquí para usar botones -->
+            <button class="btn gris" onclick="crearAlbum()">+ Crear álbum</button>
+        </div>              
+
+        <!-- Contenido principal -->
+        <div class="content">
+            <h1>RITMO DIRECTO</h1>
+
+            <!-- Input para URL o Título -->
+            <div class="input-group">
+                <input type="text" id="urlInput" placeholder="Introduce la URL o título">
+                <button class="btn negro cuadrado" onclick="descargar()">⭳</button>
+            </div>
+            
+            <div id="estado">Que estas buscando?</div>
+
+            <!-- Input para buscar canciones -->
+            <div class="input-group">
+                <input type="text" id="busquedaInput" placeholder="Buscar canción en ">
+                <button class="btn negro cuadrado" onclick="buscarCanciones()">🔍</button>
+            </div>
+
+            <!-- Tabla de canciones -->
+            <div class="tabla-contenedor">
+                <table id="cancionesLista">
+                    <thead>
+                        <tr>
+                            <th onclick="ordenarColumna(0)">Artista</th>
+                            <th onclick="ordenarColumna(1)">Canción</th>
+                            <th onclick="ordenarColumna(2)">Duración</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="botones-acciones">
+                <button id="reproducirBtn" class="btn-icon" onclick="reproducirCancion()">▶️</button>
+                <button id="eliminarBtn" class="btn-icon" onclick="eliminarCancion()">🗑️</button>
+                <button id="modoReproduccion" class="btn-icon" onclick="cambiarModo()">🌀</button>
+                <button class="btn-icon" onclick="añadirSeleccionadaACola()">➕</button>
+            </div>            
+            
+            <!-- Reproductor de audio -->
+            <audio id="audioPlayer" controls style="width: 100%; display: none;">
+                <source id="audioSource" type="audio/mp3" />
+                Tu navegador no soporta el reproductor de audio.
+            </audio>
+        </div>
+    </div>
+
+    <div class="player-bar">
+        <div id="cancionActual">No hay canción reproduciéndose</div>
+    
+        <div class="progress-container">
+            <span id="currentTime">0:00</span>
+            <div class="progress-bar">
+                <div id="progress" class="progress"></div>
+            </div>
+            <span id="duration">0:00</span>
+        </div>        
+    
+        <div class="player-controls">
+            <button class="btn-icon" onclick="reiniciarCancion()">⏮️</button>
+            <button class="btn-icon" onclick="togglePlayPause()">▶️</button>
+            <button class="btn-icon" onclick="reproducirSiguienteCancion()">⏭️</button>
+            <button class="btn-icon" onclick="mostrarCola()">📃</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

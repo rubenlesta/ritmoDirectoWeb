@@ -1,0 +1,279 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Para no centrar todo en la pantalla, solo el contenedor principal */
+    height: 100vh;
+    margin: 0;
+    flex-direction: column;
+}
+
+.container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 800px; /* Aseguramos que no se haga demasiado grande */
+    margin-top: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#estado {
+    margin-top: 10px;
+    text-align: center;
+}
+
+/* Input de texto */
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+input[type="text"]:focus {
+    border-color: #2196F3;
+    outline: none;
+}
+
+/* Botones generales */
+button {
+    padding: 10px;
+    color: white;
+    border: none;
+    margin: 10px 0;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%; /* Asegura que los botones ocupen el mismo ancho */
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+/* Colores de los botones */
+.btn.azul {
+    background-color: #2196F3;
+}
+
+.btn.rojo {
+    background-color: red;
+}
+
+.btn.verde {
+    background-color: #4CAF50;
+}
+
+.btn.negro {
+    background-color: black;
+    color: white;
+}
+
+.btn.buscar {
+    background-color: #f39c12;
+    color: white;
+}
+
+.btn.naranja {
+    background-color: orange;
+    color: white;
+}
+
+.btn.cuadrado {
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    text-align: center;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 200px;
+    background: #f4f4f4;
+    padding: 10px;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid black; /* Añadimos una línea de separación en la sidebar */
+}
+
+#listaAlbumes {
+    margin-top: 20px;
+}
+
+/* Contenido principal */
+.content {
+    flex-grow: 1;
+    padding: 20px;
+}
+
+/* Contenedor para la tabla con barra de deslizamiento */
+.tabla-contenedor {
+    max-height: 300px;
+    overflow-y: auto; /* Barra de deslizamiento */
+    border-bottom: 2px solid black; /* Línea divisoria debajo de la tabla */
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    cursor: pointer;
+}
+
+/* Efectos de selección */
+.selected {
+    background-color: #e0e0e0;
+}
+
+.main-container {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.input-group {
+    display: flex;
+    margin: 10px 0;
+}
+
+.input-group input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 5px 0 0 5px;
+    box-sizing: border-box;
+}
+
+.input-group button {
+    width: 50px; /* cuadrado y pequeño */
+    padding: 0;
+    font-size: 18px;
+    border-radius: 0 5px 5px 0;
+}
+
+.icono-boton {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+}
+
+.botones-acciones button {
+    width: 100px;  /* Ajusta el tamaño del botón */
+    height: 40px;  /* Ajusta la altura */
+    font-size: 16px;  /* Tamaño de la fuente más pequeño */
+    margin: 10px;
+}
+
+.botones-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px; /* espacio entre botones */
+    margin-top: 30px; /* separación de la tabla */
+    justify-content: center;
+}
+
+/* Botones de álbum */
+.btn.gris {
+    background-color: #b0b0b0;  /* Gris claro */
+    color: black;  /* Letras en negro */
+    border: none;
+    padding: 10px 20px;
+    margin: 5px 0;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.player-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0; /* 🔥 asegúrate de incluir esto */
+    width: 100%;
+    background: #f4f4f4;
+    border-top: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+    z-index: 1000; /* opcional, para que esté encima */
+}
+
+#cancionActual {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.player-controls button {
+    margin: 0 5px;
+    font-size: 20px;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+}
+
+.player-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #f4f4f4;
+    border-top: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+    z-index: 1000;
+}
+
+#cancionActual {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 5px 0;
+}
+
+.progress-bar {
+    position: relative;
+    width: 50%;
+    height: 5px;
+    background: #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress {
+    height: 100%;
+    background: #2196F3;
+    width: 0%;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    font-size: 25px;
+    cursor: pointer;
+}
+
+.btn-icon:hover {
+    opacity: 0.7;
+}
