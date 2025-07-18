@@ -2,50 +2,7 @@ import yt_dlp
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-cookies_path = '/home/ruben/Musica/cookies.txt'  # Asegúrate de que este archivo existe y es válido
-
-def descargar(entrada, carpeta_salida):
-    os.makedirs(carpeta_salida, exist_ok=True)
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': os.path.join(carpeta_salida, '%(title)s.%(ext)s'),
-        'cookiefile': cookies_path,
-        'noplaylist': True,  # evita descargar listas completas si es un solo vídeo
-        'quiet': False,
-        'no_warnings': True,
-        'ignoreerrors': True,  # continúa si hay errores
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-        },
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
-
-    # Soporte para búsqueda o archivo de entrada
-    if os.path.isfile(entrada):
-        with open(entrada, "r", encoding="utf-8") as f:
-            urls = [line.strip() for line in f if line.strip()]
-    else:
-        if not entrada.startswith("http"):
-            entrada = f"ytsearch1:{entrada}"
-        urls = [entrada]
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        for url in urls:
-            try:
-                print(f"🎧 Descargando: {url}")
-                info_dict = ydl.extract_info(url, download=True)
-                duracion = info_dict.get('duration', 0)
-                minutos = duracion // 60
-                segundos = duracion % 60
-                print(f"✅ Descargada: {info_dict.get('title')} [{minutos:02}:{segundos:02}]")
-            except Exception as e:
-                print(f"❌ Error con '{url}': {e}")
-cookies_path = '/home/ruben/Musica/ritmoDirecto/cookies.txt'  # RUTA ABSOLUTA DIRECTA
+cookies_path = '/home/ruben/Musica/ritmoDirectoWeb/cookies.txt'  # Asegúrate de que este archivo existe y es válido
 
 def descargar(entrada, carpeta_salida):
     os.makedirs(carpeta_salida, exist_ok=True)

@@ -1,0 +1,14 @@
+# Ignorar carpeta del entorno virtual
+venv/
+
+# Ignorar archivo de cookies
+cookies
+
+# Otros típicos de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+.env
