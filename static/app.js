@@ -406,8 +406,40 @@ window.onload = () => {
     cargarAlbumes();
     albumActual = 'Sin clasificar';
     cargarCancionesAlbum(albumActual);
-    document.addEventListener("DOMContentLoaded", () => {
-        const modoBtn = document.getElementById("modoReproduccion");
+
+    // Inicializa botón de modo de reproducción
+    const modoBtn = document.getElementById("modoReproduccion");
+    if (modoBtn) {
         modoBtn.textContent = "🔀 Modo: Aleatorio";
-    });    
+    }
+
+    // Añadir listener para el input de archivo .txt (álbum)
+    const archivoInput = document.getElementById("archivoTxt");
+    if (archivoInput) {
+        archivoInput.addEventListener("change", function () {
+            const archivo = this.files[0];
+            if (!archivo) return;
+
+            const formData = new FormData();
+            formData.append("archivoTxt", archivo);
+
+            fetch("/subir_txt_album", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("✅ Álbum creado desde el archivo.");
+                    cargarAlbumes();
+                } else {
+                    alert("❌ Error: " + data.error);
+                }
+            })
+            .catch(err => {
+                alert("❌ Error al subir el archivo.");
+                console.error(err);
+            });
+        });
+    }
 };

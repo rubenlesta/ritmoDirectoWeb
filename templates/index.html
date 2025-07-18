@@ -11,7 +11,7 @@
         <!-- Sidebar de álbumes -->
         <div class="sidebar">
             <h2>Álbumes</h2>
-            <div id="listaAlbumes"></div> <!-- Cambio aquí para usar botones -->
+            <div id="listaAlbumes"></div>
             <button class="btn gris" onclick="crearAlbum()">+ Crear álbum</button>
         </div>              
 
@@ -19,20 +19,26 @@
         <div class="content">
             <h1>RITMO DIRECTO</h1>
 
-            <!-- Input para URL o Título -->
+            <!-- Input para URL o Título + archivo -->
             <div class="input-group">
                 <input type="text" id="urlInput" placeholder="Introduce la URL o título">
+                
+                <!-- Botón para subir archivo -->
+                <label for="archivoTxtInput" class="btn negro cuadrado" title="Crear álbum desde archivo">📄</label>
+                <input type="file" id="archivoTxtInput" name="archivoTxt" accept=".txt" style="display: none;" />
+
+                <!-- Botón de descarga -->
                 <button class="btn negro cuadrado" onclick="descargar()">⭳</button>
-            </div>
+            </div>                        
             
-            <div id="estado">Que estas buscando?</div>
+            <div id="estado">¿Qué estás buscando?</div>
 
             <!-- Input para buscar canciones -->
             <div class="input-group">
                 <input type="text" id="busquedaInput" placeholder="Buscar canción en ">
                 <button class="btn negro cuadrado" onclick="buscarCanciones()">🔍</button>
             </div>
-
+            
             <!-- Tabla de canciones -->
             <div class="tabla-contenedor">
                 <table id="cancionesLista">

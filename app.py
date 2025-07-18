@@ -1,7 +1,9 @@
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template, send_from_directory 
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Cancion, Album, AlbumCancion
 from mutagen.mp3 import MP3
+from werkzeug.utils import secure_filename
+import tempfile
 import convertidor
 import os
 
@@ -191,3 +193,28 @@ def reproducir_album():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+@app.route("/subir_txt_album", methods=["POST"])
+def subir_txt_album():
+    if "archivoTxt" not in request.files:
+        return jsonify({"success": False, "error": "No se recibió ningún archivo"})
+
+    archivo = request.files["archivoTxt"]
+    if archivo.filename == "":
+        return jsonify({"success": False, "error": "Nombre de archivo vacío"})
+
+    try:
+        # Guardar temporalmente
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp:
+            archivo.save(temp.name)
+
+            from convertidor import descargar_txt_como_album
+            descargar_txt_como_album(
+                temp.name,
+                carpeta_mp3="mp3",
+                carpeta_albumes_txt="albumes_txt"
+            )
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})

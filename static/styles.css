@@ -150,7 +150,8 @@ th {
 
 .input-group {
     display: flex;
-    margin: 10px 0;
+    align-items: center;
+    gap: 2px;
 }
 
 .input-group input[type="text"] {
@@ -276,4 +277,17 @@ th {
 
 .btn-icon:hover {
     opacity: 0.7;
+}
+
+.input-group label.btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 50px;
+    height: 50px;
+    font-size: 18px;
+    background-color: black;
+    color: white;
+    border-radius: 0;
+    cursor: pointer;
 }
