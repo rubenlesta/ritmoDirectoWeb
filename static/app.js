@@ -407,12 +407,6 @@ window.onload = () => {
     albumActual = 'Sin clasificar';
     cargarCancionesAlbum(albumActual);
 
-    // Inicializa botón de modo de reproducción
-    const modoBtn = document.getElementById("modoReproduccion");
-    if (modoBtn) {
-        modoBtn.textContent = "🔀 Modo: Aleatorio";
-    }
-
     // Añadir listener para el input de archivo .txt (álbum)
     const archivoInput = document.getElementById("archivoTxt");
     if (archivoInput) {
