@@ -2,41 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>RITMO DIRECTO</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <div class="main-container">
         <!-- Sidebar de álbumes -->
-        <div class="sidebar">
+        <aside class="sidebar">
             <h2>Álbumes</h2>
             <div id="listaAlbumes"></div>
-            <button class="btn gris" onclick="crearAlbum()">+ Crear álbum</button>
-        </div>              
+            <button type="button" class="btn gris" onclick="crearAlbum()">+ Crear álbum</button>
+        </aside>
 
         <!-- Contenido principal -->
-        <div class="content">
+        <main class="content">
             <h1>RITMO DIRECTO</h1>
 
             <!-- Input para URL o Título + archivo -->
             <div class="input-group">
-                <input type="text" id="urlInput" placeholder="Introduce la URL o título">
-                
-                <!-- Botón para subir archivo -->
-                <label for="archivoTxtInput" class="btn negro cuadrado" title="Crear álbum desde archivo">📄</label>
-                <input type="file" id="archivoTxtInput" name="archivoTxt" accept=".txt" style="display: none;" />
 
-                <!-- Botón de descarga -->
-                <button class="btn negro cuadrado" onclick="descargar()">⭳</button>
+                <!-- Botón de descarga -->                
+                <input type="text" id="inputNombreCancion" placeholder="Nombre canción" />
+                <button type="button" class="btn negro cuadrado" onclick="descargar()">⭳</button>
+                <input type="file" id="archivoTxt" accept=".txt" style="display:none" />
+                <label for="archivoTxt" class="btn negro cuadrado" title="Crear álbum desde archivo">📄</label>
+                
             </div>                        
             
             <div id="estado">¿Qué estás buscando?</div>
 
             <!-- Input para buscar canciones -->
             <div class="input-group">
-                <input type="text" id="busquedaInput" placeholder="Buscar canción en ">
-                <button class="btn negro cuadrado" onclick="buscarCanciones()">🔍</button>
+                <input type="text" id="busquedaInput" placeholder="Buscar canción en " />
+                <button type="button" class="btn negro cuadrado" onclick="buscar()">🔍</button>
             </div>
             
             <!-- Tabla de canciones -->
@@ -44,9 +43,9 @@
                 <table id="cancionesLista">
                     <thead>
                         <tr>
-                            <th onclick="ordenarColumna(0)">Artista</th>
-                            <th onclick="ordenarColumna(1)">Canción</th>
-                            <th onclick="ordenarColumna(2)">Duración</th>
+                            <th onclick="ordenarColumna(0)" style="cursor:pointer;">Artista</th>
+                            <th onclick="ordenarColumna(1)" style="cursor:pointer;">Canción</th>
+                            <th onclick="ordenarColumna(2)" style="cursor:pointer;">Duración</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -55,10 +54,10 @@
 
             <!-- Botones de acción -->
             <div class="botones-acciones">
-                <button id="reproducirBtn" class="btn-icon" onclick="reproducirCancion()">▶️</button>
-                <button id="eliminarBtn" class="btn-icon" onclick="eliminarCancion()">🗑️</button>
-                <button id="modoReproduccion" class="btn-icon" onclick="cambiarModo()">🌀</button>
-                <button class="btn-icon" onclick="añadirSeleccionadaACola()">➕</button>
+                <button type="button" id="reproducirBtn" class="btn-icon" onclick="reproducirCancion()">▶️</button>
+                <button type="button" id="eliminarBtn" class="btn-icon" onclick="eliminarCancion()">🗑️</button>
+                <button type="button" id="modoReproduccion" class="btn-icon" onclick="cambiarModo()">🌀</button>
+                <button type="button" class="btn-icon" onclick="agregarCola()">➕</button>
             </div>            
             
             <!-- Reproductor de audio -->
@@ -66,7 +65,7 @@
                 <source id="audioSource" type="audio/mp3" />
                 Tu navegador no soporta el reproductor de audio.
             </audio>
-        </div>
+        </main>
     </div>
 
     <div class="player-bar">
@@ -81,13 +80,55 @@
         </div>        
     
         <div class="player-controls">
-            <button class="btn-icon" onclick="reiniciarCancion()">⏮️</button>
-            <button class="btn-icon" onclick="togglePlayPause()">▶️</button>
-            <button class="btn-icon" onclick="reproducirSiguienteCancion()">⏭️</button>
-            <button class="btn-icon" onclick="mostrarCola()">📃</button>
+            <button type="button" class="btn-icon" onclick="reiniciarCancion()">⏮️</button>
+            <button type="button" class="btn-icon" onclick="togglePlayPause()">▶️</button>
+            <button type="button" class="btn-icon" onclick="reproducirSiguienteCancion()">⏭️</button>
+            <button type="button" class="btn-icon" onclick="mostrarCola()">📃</button>
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
+
+<script>
+    // Cambiar nombre del archivo en el input
+    document.getElementById('archivoTxt').addEventListener('change', function(event) {
+        const archivo = event.target.files[0];
+        if (archivo) {
+            document.getElementById('inputNombreCancion').value = archivo.name;
+        }
+    });
+    
+    function descargar() {
+        const inputFile = document.getElementById('archivoTxt');
+        const inputNombre = document.getElementById('inputNombreCancion');
+    
+        if (inputFile.files.length === 0) {
+            alert('Por favor, selecciona un archivo primero');
+            return;
+        }
+    
+        const archivo = inputFile.files[0];
+        const formData = new FormData();
+        formData.append('archivoTxt', archivo);
+    
+        fetch('/subir_txt_album', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Álbum creado y canciones descargadas correctamente');
+                inputNombre.value = '';
+                inputFile.value = '';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error al subir el archivo: ' + error);
+        });
+    }
+</script>

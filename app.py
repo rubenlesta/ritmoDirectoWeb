@@ -1,4 +1,6 @@
-from flask import Flask, jsonify, request, render_template, send_from_directory 
+from config import MP3_FOLDER, SQLALCHEMY_DATABASE_URI
+
+from flask import Flask, jsonify, request, render_template, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Cancion, Album, AlbumCancion
 from mutagen.mp3 import MP3
@@ -9,15 +11,14 @@ import os
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ritmo_directo.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-mp3_folder = os.path.join(BASE_DIR, "mp3")
+mp3_folder = MP3_FOLDER
 os.makedirs(mp3_folder, exist_ok=True)
-
 
 @app.route("/")
 def index():
@@ -30,14 +31,12 @@ def descargar():
         return jsonify({"success": False, "error": "Entrada vacía"})
 
     try:
-        # Descargar la canción usando convertidor
-        convertidor.descargar(entrada, mp3_folder)  # Pasamos la carpeta mp3
+        convertidor.descargar(entrada, mp3_folder)
         return jsonify({"success": True})
     except Exception as e:
-        print("Error en descarga: ", e)
+        print("Error en descarga:", e)
         return jsonify({"success": False, "error": str(e)})
 
-# Función para obtener la duración de las canciones
 def obtener_duracion(ruta):
     try:
         audio = MP3(ruta)
@@ -46,7 +45,7 @@ def obtener_duracion(ruta):
         segundos = duracion_seg % 60
         return f"{minutos:02}:{segundos:02}"
     except Exception:
-        return "??:??"  # En caso de error, duración desconocida
+        return "??:??"
 
 @app.route("/lista_canciones")
 def lista_canciones():
@@ -54,12 +53,10 @@ def lista_canciones():
     for archivo in os.listdir(mp3_folder):
         ruta = os.path.join(mp3_folder, archivo)
         if archivo.endswith(".mp3") and os.path.isfile(ruta):
-            nombre_cancion = archivo.replace('.mp3', '')
+            nombre_cancion = archivo[:-4]  # Quitar extensión .mp3
 
-            # Obtener duración con mutagen
             duracion_formateada = obtener_duracion(ruta)
 
-            # Partir nombre: Artista - Canción
             if " - " in nombre_cancion:
                 artista, cancion = nombre_cancion.split(" - ", 1)
             else:
@@ -77,6 +74,10 @@ def lista_canciones():
 def reproducir():
     cancion = request.args.get("cancion", "")
     album = request.args.get("album", "")
+
+    # Eliminar extensión .mp3 si existe
+    if cancion.lower().endswith(".mp3"):
+        cancion = cancion[:-4]
 
     if album and album != "Sin clasificar":
         ruta_album = os.path.join(mp3_folder, album)
@@ -96,6 +97,10 @@ def eliminar():
     if not cancion:
         return jsonify({"success": False, "error": "No se especificó la canción"})
 
+    # Quitar extensión .mp3 si viene incluida
+    if cancion.lower().endswith(".mp3"):
+        cancion = cancion[:-4]
+
     archivo = os.path.join(mp3_folder, f"{cancion}.mp3")
 
     try:
@@ -112,19 +117,18 @@ def albumes():
     carpetas = [nombre for nombre in os.listdir(mp3_folder)
                 if os.path.isdir(os.path.join(mp3_folder, nombre))]
     carpetas.insert(0, "Sin clasificar")
-    print("Albumes actuales:", carpetas)  # 🔥 Debug print
     return jsonify({"albumes": carpetas})
 
 @app.route("/crear_album", methods=["POST"])
 def crear_album():
     data = request.get_json()
-    nombre = data.get("nombre", "")
+    nombre = data.get("nombre", "").strip()
     if not nombre:
         return jsonify({"success": False, "error": "Nombre vacío"})
 
     ruta_album = os.path.join(mp3_folder, nombre)
     try:
-        os.makedirs(ruta_album)
+        os.makedirs(ruta_album, exist_ok=True)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -138,13 +142,12 @@ def lista_canciones_album():
     if os.path.exists(ruta_album):
         for archivo in os.listdir(ruta_album):
             if archivo.endswith(".mp3"):
-                nombre_cancion = archivo.replace('.mp3', '')
+                nombre_cancion = archivo[:-4]
 
-                # Obtener duración de la canción
                 duracion_formateada = obtener_duracion(os.path.join(ruta_album, archivo))
 
-                if "-" in nombre_cancion:
-                    artista, cancion_nombre = nombre_cancion.split("-", 1)
+                if " - " in nombre_cancion:
+                    artista, cancion_nombre = nombre_cancion.split(" - ", 1)
                 else:
                     artista, cancion_nombre = "", nombre_cancion
 
@@ -162,14 +165,12 @@ def lista_canciones_sin_album():
     for archivo in os.listdir(mp3_folder):
         ruta = os.path.join(mp3_folder, archivo)
         if archivo.endswith(".mp3") and os.path.isfile(ruta):
-            nombre_cancion = archivo.replace('.mp3', '')
+            nombre_cancion = archivo[:-4]
 
-            # Obtener duración
             duracion_formateada = obtener_duracion(ruta)
 
-            # Separar artista - canción si está en el nombre
-            if "-" in nombre_cancion:
-                artista, cancion_nombre = nombre_cancion.split("-", 1)
+            if " - " in nombre_cancion:
+                artista, cancion_nombre = nombre_cancion.split(" - ", 1)
             else:
                 artista, cancion_nombre = "", nombre_cancion
 
@@ -191,9 +192,6 @@ def reproducir_album():
     else:
         return jsonify({"success": False, "error": "Archivo no encontrado"})
 
-if __name__ == "__main__":
-    app.run(debug=True)
-
 @app.route("/subir_txt_album", methods=["POST"])
 def subir_txt_album():
     if "archivoTxt" not in request.files:
@@ -204,17 +202,18 @@ def subir_txt_album():
         return jsonify({"success": False, "error": "Nombre de archivo vacío"})
 
     try:
-        # Guardar temporalmente
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp:
             archivo.save(temp.name)
 
-            from convertidor import descargar_txt_como_album
-            descargar_txt_como_album(
+            convertidor.descargar_txt_como_album(
                 temp.name,
-                carpeta_mp3="mp3",
-                carpeta_albumes_txt="albumes_txt"
+                carpeta_mp3=mp3_folder,
+                carpeta_albumes_txt=os.path.join(BASE_DIR, "albumes_txt")
             )
 
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+if __name__ == "__main__":
+    app.run(debug=True)

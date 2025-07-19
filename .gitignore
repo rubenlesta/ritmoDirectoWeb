@@ -3,6 +3,7 @@ venv/
 
 # Ignorar archivo de cookies
 cookies
+cookies.txt
 
 # Otros típicos de Python
 __pycache__/

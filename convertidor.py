@@ -1,29 +1,23 @@
+from config import MP3_FOLDER, COOKIES_PATH, YTDLP_OPTIONS
+
 import yt_dlp
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-cookies_path = '/home/ruben/Musica/ritmoDirectoWeb/cookies.txt'  # Asegúrate de que este archivo existe y es válido
+cookies_path = COOKIES_PATH  # Asegúrate que este archivo existe y es válido
 
-def descargar(entrada, carpeta_salida):
+def descargar(entrada, carpeta_salida, nombre_archivo=None):
     os.makedirs(carpeta_salida, exist_ok=True)
 
-    ydl_opts = {
-        'format': 'bestaudio/best',  # 251: webm audio que suele estar disponible
-        'outtmpl': os.path.join(carpeta_salida, '%(title)s.%(ext)s'),
-        'cookiefile': cookies_path,
-        'noplaylist': True,
-        'quiet': False,
-        'no_warnings': True,
-        'ignoreerrors': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
+    # Si nombre_archivo se pasa, úsalo para el nombre de archivo final
+    if nombre_archivo:
+        outtmpl = os.path.join(carpeta_salida, nombre_archivo + '.%(ext)s')
+    else:
+        outtmpl = os.path.join(carpeta_salida, '%(title)s.%(ext)s')
 
+    ydl_opts = YTDLP_OPTIONS.copy()
+    ydl_opts['outtmpl']=outtmpl
 
-    # Soporte para búsqueda o archivo de entrada
     if os.path.isfile(entrada):
         with open(entrada, "r", encoding="utf-8") as f:
             urls = [line.strip() for line in f if line.strip()]
@@ -37,6 +31,8 @@ def descargar(entrada, carpeta_salida):
             try:
                 print(f"🎧 Descargando: {url}")
                 info_dict = ydl.extract_info(url, download=True)
+                if isinstance(info_dict, dict) and 'entries' in info_dict:
+                    info_dict = info_dict['entries'][0]
                 duracion = info_dict.get('duration', 0)
                 minutos = duracion // 60
                 segundos = duracion % 60
@@ -45,7 +41,6 @@ def descargar(entrada, carpeta_salida):
                 print(f"❌ Error con '{url}': {e}")
 
 def descargar_txt_como_album(ruta_txt, carpeta_mp3, carpeta_albumes_txt):
-    import os
     os.makedirs(carpeta_mp3, exist_ok=True)
     os.makedirs(carpeta_albumes_txt, exist_ok=True)
 
@@ -60,6 +55,9 @@ def descargar_txt_como_album(ruta_txt, carpeta_mp3, carpeta_albumes_txt):
     canciones = lineas[1:]
     print(f"🎶 Álbum: {nombre_album}")
 
+    carpeta_album = os.path.join(carpeta_mp3, nombre_album)
+    os.makedirs(carpeta_album, exist_ok=True)
+
     canciones_guardadas = []
 
     for entrada in canciones:
@@ -71,20 +69,19 @@ def descargar_txt_como_album(ruta_txt, carpeta_mp3, carpeta_albumes_txt):
             nombre_archivo = titulo
 
         nombre_archivo = nombre_archivo.strip()
-        ruta_destino = os.path.join(carpeta_mp3, f"{nombre_archivo}.mp3")
+        ruta_destino = os.path.join(carpeta_album, f"{nombre_archivo}.mp3")
 
         if os.path.exists(ruta_destino):
             print(f"📁 Ya existe: {nombre_archivo}")
         else:
             try:
-                descargar(entrada, carpeta_mp3)  # Tu función existente
+                descargar(entrada, carpeta_album, nombre_archivo)
             except Exception as e:
                 print(f"❌ Error al descargar '{entrada}': {e}")
                 continue
 
         canciones_guardadas.append(nombre_archivo)
 
-    # Guardar el .txt del álbum
     ruta_album_txt = os.path.join(carpeta_albumes_txt, f"{nombre_album}.txt")
     with open(ruta_album_txt, "w", encoding="utf-8") as f:
         for c in canciones_guardadas:
