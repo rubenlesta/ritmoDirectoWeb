@@ -16,6 +16,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+from routes.albums import albums_bp
+app.register_blueprint(albums_bp)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 mp3_folder = MP3_FOLDER
 os.makedirs(mp3_folder, exist_ok=True)
@@ -106,7 +109,18 @@ def eliminar():
     try:
         if os.path.exists(archivo):
             os.remove(archivo)
+
+            # También eliminar de la base de datos
+            cancion_db = Cancion.query.filter_by(nombre=cancion).first()
+            if cancion_db:
+                # Eliminar relaciones con álbumes primero
+                AlbumCancion.query.filter_by(cancion_id=cancion_db.id).delete()
+
+                db.session.delete(cancion_db)
+                db.session.commit()
+
             return jsonify({"success": True})
+
         else:
             return jsonify({"success": False, "error": "Archivo no encontrado"})
     except Exception as e:
@@ -202,16 +216,71 @@ def subir_txt_album():
         return jsonify({"success": False, "error": "Nombre de archivo vacío"})
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp:
-            archivo.save(temp.name)
+        nombre_album = os.path.splitext(archivo.filename)[0].strip()
 
-            convertidor.descargar_txt_como_album(
-                temp.name,
-                carpeta_mp3=mp3_folder,
-                carpeta_albumes_txt=os.path.join(BASE_DIR, "albumes_txt")
-            )
+        # Ruta final donde guardar el archivo txt
+        ruta_txt_final = os.path.join(BASE_DIR, "albumes_txt", f"{nombre_album}.txt")
+        archivo.save(ruta_txt_final)
+
+        # Paso 1: Descargar canciones
+        convertidor.descargar_txt_como_album(
+            ruta_txt_final,
+            carpeta_mp3=mp3_folder,
+            carpeta_albumes_txt=os.path.join(BASE_DIR, "albumes_txt")
+        )
+
+        # Paso 2: Leer canciones del txt
+        with open(ruta_txt_final, "r", encoding="utf-8") as f:
+            lineas = [line.strip() for line in f if line.strip()]
+
+        # Paso 3: Crear álbum en la base de datos si no existe
+        album = Album.query.filter_by(nombre=nombre_album).first()
+        if not album:
+            album = Album(nombre=nombre_album)
+            db.session.add(album)
+            db.session.commit()
+
+        # Paso 4: Procesar cada canción
+        for linea in lineas:
+            if " - " in linea:
+                artista, titulo = linea.split(" - ", 1)
+            else:
+                artista, titulo = "Desconocido", linea
+
+            # Generar el nombre del archivo
+            nombre_archivo = f"{artista.strip()} - {titulo.strip()}"
+
+            # Buscar la canción por nombre (que es único)
+            cancion = Cancion.query.filter_by(nombre=nombre_archivo).first()
+
+            # Si no existe, crearla
+            if not cancion:
+                duracion = "??:??"
+                ruta_mp3 = os.path.join(mp3_folder, nombre_album, f"{nombre_archivo}.mp3")
+                if os.path.exists(ruta_mp3):
+                    try:
+                        audio = MP3(ruta_mp3)
+                        duracion_seg = int(audio.info.length)
+                        minutos = duracion_seg // 60
+                        segundos = duracion_seg % 60
+                        duracion = f"{minutos:02}:{segundos:02}"
+                    except:
+                        pass
+
+                cancion = Cancion(nombre=nombre_archivo, artista=artista, duracion=duracion)
+                db.session.add(cancion)
+                db.session.commit()
+
+            # Relación con el álbum si no está ya
+            existe = AlbumCancion.query.filter_by(album_id=album.id, cancion_id=cancion.id).first()
+            if not existe:
+                relacion = AlbumCancion(album_id=album.id, cancion_id=cancion.id)
+                db.session.add(relacion)
+
+        db.session.commit()
 
         return jsonify({"success": True})
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 

@@ -51,12 +51,11 @@ def descargar_txt_como_album(ruta_txt, carpeta_mp3, carpeta_albumes_txt):
         print("❌ El archivo está vacío.")
         return
 
-    nombre_album = lineas[0]
-    canciones = lineas[1:]
+    nombre_album = os.path.splitext(os.path.basename(ruta_txt))[0]
+    canciones = lineas[0:]
     print(f"🎶 Álbum: {nombre_album}")
 
-    carpeta_album = os.path.join(carpeta_mp3, nombre_album)
-    os.makedirs(carpeta_album, exist_ok=True)
+    carpeta_album = carpeta_mp3;
 
     canciones_guardadas = []
 

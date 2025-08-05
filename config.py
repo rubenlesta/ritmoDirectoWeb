@@ -11,8 +11,8 @@ COOKIES_PATH = os.path.expanduser('/home/ruben/Musica/ritmoDirectoWeb/cookies.tx
 # Carpeta donde se guardan los archivos txt de álbumes
 ALBUMES_TXT_FOLDER = os.path.join(BASE_DIR, "albumes_txt")
 
-# Base de datos SQLite
-SQLALCHEMY_DATABASE_URI = 'sqlite:///ritmo_directo.db'
+# Base de datos MySQL
+SQLALCHEMY_DATABASE_URI = "mysql+pymysql://ruben:db1234@localhost/musica"
 
 # Configuraciones para yt-dlp
 YTDLP_OPTIONS = {
@@ -28,3 +28,6 @@ YTDLP_OPTIONS = {
         'preferredquality': '192',
     }],
 }
+
+# user: ruben
+# password: db1234
