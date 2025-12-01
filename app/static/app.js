@@ -3,7 +3,16 @@ let cancionesAlbum = [];
 let indiceActual = 0;
 let modoAleatorio = true;
 let albumActual = "";
+
 let colaReproduccion = [];
+let currentContextSong = null;
+
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('contextMenu');
+    if (menu && menu.style.display === 'block') {
+        menu.style.display = 'none';
+    }
+});
 
 // --- Toast Notification System ---
 function showToast(message, type = 'info') {
@@ -146,6 +155,9 @@ function renderSongs() {
                 <button class="action-btn-small" onclick="event.stopPropagation(); agregarColaDirecto(${index})" title="Agregar a cola">
                     <i class="fa-solid fa-plus"></i>
                 </button>
+                <button class="action-btn-small" onclick="showContextMenu(event, cancionesAlbum[${index}])" title="Más opciones">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
             </td>
         `;
         row.onclick = () => seleccionarCancion(row, cancion, index);
@@ -254,6 +266,7 @@ function onSongEnd() {
 function reproducirSiguienteCancion() {
     if (colaReproduccion.length > 0) {
         const next = colaReproduccion.shift();
+        renderQueue();
         // Find index in current list if possible, otherwise just play
         // For simplicity, we just play it and don't highlight if not in list
         cancionSeleccionada = next;
@@ -359,16 +372,132 @@ function agregarColaDirecto(index) {
     const cancion = cancionesAlbum[index];
     colaReproduccion.push(cancion);
     showToast(`Agregada a la cola: ${cancion.titulo}`);
+    renderQueue();
+}
+
+function toggleQueue() {
+    const sidebar = document.getElementById('queueSidebar');
+    sidebar.classList.toggle('open');
+    renderQueue();
+}
+
+function renderQueue() {
+    const list = document.getElementById('queueList');
+    if (colaReproduccion.length === 0) {
+        list.innerHTML = '<div class="empty-queue" style="padding: 20px; text-align: center; color: var(--text-muted);">Cola vacía</div>';
+        return;
+    }
+    list.innerHTML = '';
+    colaReproduccion.forEach((cancion, index) => {
+        const item = document.createElement('div');
+        item.className = 'queue-item';
+        item.innerHTML = `
+            <div class="info">
+                <span class="title">${cancion.titulo}</span>
+                <span class="artist">${cancion.artista || 'Desconocido'}</span>
+            </div>
+            <button class="action-btn-small" onclick="removeFromQueue(${index})">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        `;
+        list.appendChild(item);
+    });
+}
+
+function removeFromQueue(index) {
+    colaReproduccion.splice(index, 1);
+    renderQueue();
 }
 
 function mostrarCola() {
-    if (colaReproduccion.length === 0) {
-        showToast("La cola está vacía");
-    } else {
-        // Could be a modal, for now just a toast summary
-        showToast(`${colaReproduccion.length} canciones en cola`);
-    }
+    toggleQueue();
 }
+
+// --- Context Menu ---
+function showContextMenu(event, song) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentContextSong = song;
+    const menu = document.getElementById('contextMenu');
+
+    // Calculate position
+    let x = event.clientX;
+    let y = event.clientY;
+
+    // Prevent overflow
+    if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+    if (y + 300 > window.innerHeight) y = window.innerHeight - 310;
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+
+    // Check if submenu would overflow (menu width ~200px + submenu width ~200px)
+    if (x + 400 > window.innerWidth) {
+        menu.classList.add('submenu-left');
+    } else {
+        menu.classList.remove('submenu-left');
+    }
+
+    menu.style.display = 'block';
+
+    loadAlbumsForMenu();
+}
+
+function loadAlbumsForMenu() {
+    const submenu = document.getElementById('albumSubmenu');
+    submenu.innerHTML = '<div class="menu-item">Cargando...</div>';
+
+    fetch("/api/albumes")
+        .then(r => r.json())
+        .then(data => {
+            submenu.innerHTML = '';
+            data.albumes.forEach(album => {
+                const item = document.createElement('div');
+                item.className = 'menu-item';
+                item.innerHTML = `<i class="fa-solid fa-folder"></i> ${album}`;
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    addToAlbum(album);
+                    document.getElementById('contextMenu').style.display = 'none';
+                };
+                submenu.appendChild(item);
+            });
+        });
+}
+
+function addToAlbum(albumName) {
+    if (!currentContextSong) return;
+
+    fetch('/api/agregar_a_album', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            cancion: currentContextSong.filename,
+            album: albumName
+        })
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`Añadida a ${albumName}`);
+            } else {
+                showToast(data.error, 'error');
+            }
+        });
+}
+
+// Bind delete action
+document.addEventListener('DOMContentLoaded', () => {
+    const deleteBtn = document.getElementById('ctxDelete');
+    if (deleteBtn) {
+        deleteBtn.onclick = () => {
+            if (currentContextSong) {
+                eliminarCancion(currentContextSong.filename);
+                document.getElementById('contextMenu').style.display = 'none';
+            }
+        };
+    }
+});
 
 function buscar() {
     const texto = document.getElementById("busquedaInput").value.toLowerCase();

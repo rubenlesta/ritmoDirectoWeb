@@ -91,3 +91,33 @@ def delete_song():
             db.session.commit()
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "No encontrado"})
+
+@api_bp.route("/api/agregar_a_album", methods=["POST"])
+def add_to_album():
+    data = request.get_json()
+    filename = data.get("cancion")
+    album_nombre = data.get("album")
+    
+    if not filename or not album_nombre:
+        return jsonify({"success": False, "error": "Datos incompletos"})
+        
+    from app.models import Cancion, Album, AlbumCancion
+    
+    cancion = Cancion.query.filter_by(filename=filename).first()
+    album = Album.query.filter_by(nombre=album_nombre).first()
+    
+    if not cancion:
+        return jsonify({"success": False, "error": "Canción no encontrada"})
+    if not album:
+        return jsonify({"success": False, "error": "Álbum no encontrado"})
+        
+    # Check if already exists
+    exists = AlbumCancion.query.filter_by(album_id=album.id, cancion_id=cancion.id).first()
+    if exists:
+        return jsonify({"success": False, "error": "La canción ya está en el álbum"})
+        
+    link = AlbumCancion(album_id=album.id, cancion_id=cancion.id)
+    db.session.add(link)
+    db.session.commit()
+    
+    return jsonify({"success": True})

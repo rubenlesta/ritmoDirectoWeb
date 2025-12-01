@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar -->
@@ -17,7 +19,7 @@
             <div class="logo">
                 <i class="fa-solid fa-music"></i> Ritmo Directo
             </div>
-            
+
             <div class="sidebar-section">
                 <h3><i class="fa-solid fa-compact-disc"></i> Álbumes</h3>
                 <div id="listaAlbumes" class="album-list">
@@ -37,16 +39,16 @@
                     <input type="text" id="busquedaInput" placeholder="Buscar canción..." onkeyup="buscar()">
                 </div>
                 <div class="actions">
-                     <div class="download-group">
+                    <div class="download-group">
                         <input type="text" id="urlInput" placeholder="URL o Título para descargar">
                         <button class="btn-primary" onclick="descargar()" title="Descargar">
                             <i class="fa-solid fa-download"></i>
                         </button>
-                     </div>
-                     <label for="archivoTxt" class="btn-icon" title="Subir lista TXT">
+                    </div>
+                    <label for="archivoTxt" class="btn-icon" title="Subir lista TXT">
                         <i class="fa-solid fa-file-upload"></i>
-                     </label>
-                     <input type="file" id="archivoTxt" accept=".txt" style="display:none" />
+                    </label>
+                    <input type="file" id="archivoTxt" accept=".txt" style="display:none" />
                 </div>
             </header>
 
@@ -71,6 +73,35 @@
                 </div>
             </div>
         </main>
+
+
+        <!-- Queue Sidebar -->
+        <aside class="queue-sidebar glass" id="queueSidebar">
+            <div class="queue-header">
+                <h3>Cola de Reproducción</h3>
+                <button class="btn-text" onclick="toggleQueue()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div id="queueList" class="queue-list">
+                <!-- Queue items loaded dynamically -->
+                <div class="empty-queue">Cola vacía</div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu glass" style="display: none;">
+        <div class="menu-item" id="ctxDelete">
+            <i class="fa-solid fa-trash"></i> Borrar canción
+        </div>
+        <div class="menu-item has-submenu">
+            <i class="fa-solid fa-folder-plus"></i> Añadir a álbum
+            <i class="fa-solid fa-chevron-right submenu-arrow"></i>
+            <div class="submenu glass" id="albumSubmenu">
+                <!-- Albums loaded dynamically -->
+            </div>
+        </div>
     </div>
 
     <!-- Player Bar -->
@@ -119,4 +150,5 @@
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
+
 </html>
