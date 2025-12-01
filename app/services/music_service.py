@@ -1,10 +1,21 @@
 import os
+import re
 import yt_dlp
 from mutagen.mp3 import MP3
 from app.config import Config
 from app.models import db, Cancion, Album, AlbumCancion
 
 class MusicService:
+    @staticmethod
+    def clean_filename(text):
+        # Remove content in parentheses
+        text = re.sub(r'\([^)]*\)', '', text)
+        # Remove content in brackets
+        text = re.sub(r'\[[^]]*\]', '', text)
+        # Remove extra spaces
+        text = " ".join(text.split())
+        return text
+
     @staticmethod
     def get_duration(path):
         try:
@@ -17,69 +28,144 @@ class MusicService:
             return "??:??"
 
     @staticmethod
-    def download_song(entry, output_folder, filename=None):
+    def ensure_home_album():
+        home = Album.query.filter_by(nombre="Home").first()
+        if not home:
+            home = Album(nombre="Home")
+            db.session.add(home)
+            db.session.commit()
+        return home
+
+    @staticmethod
+    def add_song_to_db(filename, artist, title, duration):
+        # Ensure Home album exists
+        home = MusicService.ensure_home_album()
+        
+        cancion = Cancion.query.filter_by(filename=filename).first()
+        if not cancion:
+            cancion = Cancion(titulo=title, artista=artist, duracion=duration, filename=filename)
+            db.session.add(cancion)
+            db.session.commit()
+        
+        # Link to Home if not already linked
+        link = AlbumCancion.query.filter_by(album_id=home.id, cancion_id=cancion.id).first()
+        if not link:
+            link = AlbumCancion(album_id=home.id, cancion_id=cancion.id)
+            db.session.add(link)
+            db.session.commit()
+            
+        return cancion
+
+    @staticmethod
+    def download_song(entry, output_folder):
         os.makedirs(output_folder, exist_ok=True)
         
-        if filename:
-            outtmpl = os.path.join(output_folder, filename + '.%(ext)s')
-        else:
-            outtmpl = os.path.join(output_folder, '%(title)s.%(ext)s')
+        # 1. Get Info first to clean name
+        ydl_opts_info = {
+            'quiet': True,
+            'cookiefile': Config.COOKIES_PATH,
+            'noplaylist': True,
+        }
+        
+        search_query = entry if entry.startswith("http") else f"ytsearch1:{entry}"
+        
+        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+            try:
+                info = ydl.extract_info(search_query, download=False)
+                if 'entries' in info:
+                    info = info['entries'][0]
+            except Exception as e:
+                raise Exception(f"Error fetching info: {e}")
 
+        original_title = info.get('title', 'Unknown')
+        clean_title = MusicService.clean_filename(original_title)
+        
+        # Split artist - title if present
+        if " - " in clean_title:
+            artist, title = clean_title.split(" - ", 1)
+        else:
+            artist, title = "Desconocido", clean_title
+            
+        filename = f"{artist} - {title}.mp3"
+        filepath = os.path.join(output_folder, filename)
+        
+        # 2. Check if exists (MP3)
+        if os.path.exists(filepath):
+            # Ensure it's in DB
+            duration = MusicService.get_duration(filepath)
+            MusicService.add_song_to_db(filename, artist, title, duration)
+            return {"success": True, "message": "La canción ya existe", "exists": True}
+
+        # 3. Download
         ydl_opts = {
             'format': 'bestaudio/best',
             'cookiefile': Config.COOKIES_PATH,
             'noplaylist': True,
             'quiet': False,
-            'no_warnings': True,
-            'ignoreerrors': True,
-            'outtmpl': outtmpl,
+            # Force filename to be exactly what we want
+            'outtmpl': os.path.join(output_folder, f"{artist} - {title}.%(ext)s"),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
+            # Ensure we don't keep the video file
+            'keepvideo': False,
         }
 
-        if os.path.isfile(entry):
-             with open(entry, "r", encoding="utf-8") as f:
-                urls = [line.strip() for line in f if line.strip()]
-        else:
-            if not entry.startswith("http"):
-                entry = f"ytsearch1:{entry}"
-            urls = [entry]
-
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            for url in urls:
-                try:
-                    ydl.extract_info(url, download=True)
-                except Exception as e:
-                    print(f"Error downloading {url}: {e}")
-                    raise e
+            ydl.download([info['webpage_url']])
+            
+        # 4. Verify MP3 exists (conversion might have failed or named differently)
+        if not os.path.exists(filepath):
+             # Try to find if it saved as something else and rename/convert?
+             # For now, just warn or try to find partial match?
+             # But with outtmpl it should be close.
+             pass
+
+        # 5. Add to DB
+        if os.path.exists(filepath):
+            duration = MusicService.get_duration(filepath)
+            MusicService.add_song_to_db(filename, artist, title, duration)
+            return {"success": True, "message": "Descarga completada", "exists": False}
+        else:
+             return {"success": False, "error": "Error en la conversión a MP3"}
 
     @staticmethod
-    def process_album_txt(txt_path, album_name):
-        # Logic to process album txt, download songs, and update DB
-        # This is a simplified version of the logic in convertidor.py
-        # For now, we will just implement the basic structure
-        pass
-
-    @staticmethod
-    def get_all_songs():
+    def get_songs_by_album(album_name):
+        album = Album.query.filter_by(nombre=album_name).first()
+        if not album:
+            return []
+        
         songs = []
+        for ac in album.canciones:
+            c = ac.cancion
+            songs.append({
+                "id": c.id,
+                "titulo": c.titulo,
+                "artista": c.artista,
+                "duracion": c.duracion,
+                "filename": c.filename
+            })
+        return songs
+
+    @staticmethod
+    def sync_files():
+        """Scans mp3 folder and adds missing files to DB/Home"""
+        home = MusicService.ensure_home_album()
+        
+        if not os.path.exists(Config.MP3_FOLDER):
+            return
+
         for filename in os.listdir(Config.MP3_FOLDER):
             if filename.endswith(".mp3"):
-                path = os.path.join(Config.MP3_FOLDER, filename)
-                name = filename[:-4]
-                duration = MusicService.get_duration(path)
-                
-                if " - " in name:
-                    artist, title = name.split(" - ", 1)
+                # Try to parse Artist - Title from filename
+                name_without_ext = filename[:-4]
+                if " - " in name_without_ext:
+                    artist, title = name_without_ext.split(" - ", 1)
                 else:
-                    artist, title = "Desconocido", name
+                    artist, title = "Desconocido", name_without_ext
                 
-                songs.append({
-                    "artista": artist,
-                    "cancion": title,
-                    "duracion": duration
-                })
-        return songs
+                path = os.path.join(Config.MP3_FOLDER, filename)
+                duration = MusicService.get_duration(path)
+                MusicService.add_song_to_db(filename, artist, title, duration)

@@ -5,18 +5,19 @@ db = SQLAlchemy()
 class Cancion(db.Model):
     __tablename__ = 'canciones'
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(255), nullable=False, unique=True)  # nombre de archivo sin .mp3
+    titulo = db.Column(db.String(255), nullable=False) # Changed from nombre to titulo
     artista = db.Column(db.String(255))
     duracion = db.Column(db.String(10))
+    filename = db.Column(db.String(255), unique=True, nullable=False) # Store actual filename
 
-    albumes = db.relationship("AlbumCancion", back_populates="cancion")
+    albumes = db.relationship("AlbumCancion", back_populates="cancion", cascade="all, delete-orphan")
 
 class Album(db.Model):
     __tablename__ = 'albumes'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(255), nullable=False, unique=True)
 
-    canciones = db.relationship("AlbumCancion", back_populates="album")
+    canciones = db.relationship("AlbumCancion", back_populates="album", cascade="all, delete-orphan")
 
 class AlbumCancion(db.Model):
     __tablename__ = 'album_cancion'

@@ -136,11 +136,11 @@ function renderSongs() {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${index + 1}</td>
-            <td>${cancion.cancion}</td>
+            <td>${cancion.titulo}</td>
             <td>${cancion.artista || 'Desconocido'}</td>
             <td>${cancion.duracion}</td>
             <td>
-                <button class="action-btn-small" onclick="event.stopPropagation(); eliminarCancion('${cancion.cancion}')" title="Eliminar">
+                <button class="action-btn-small" onclick="event.stopPropagation(); eliminarCancion('${cancion.filename}')" title="Eliminar">
                     <i class="fa-solid fa-trash"></i>
                 </button>
                 <button class="action-btn-small" onclick="event.stopPropagation(); agregarColaDirecto(${index})" title="Agregar a cola">
@@ -160,7 +160,7 @@ function seleccionarCancion(row, cancion, index) {
     indiceActual = index;
 
     // Update player info immediately
-    document.getElementById("cancionActual").textContent = cancion.cancion;
+    document.getElementById("cancionActual").textContent = cancion.titulo;
     document.getElementById("artistaActual").textContent = cancion.artista || "Desconocido";
 
     reproducirCancion();
@@ -173,12 +173,16 @@ function reproducirCancion() {
     const audioPlayer = document.getElementById("audioPlayer");
     const playIcon = document.getElementById("playIcon");
 
-    let nombreArchivo = cancionSeleccionada.artista
-        ? `${cancionSeleccionada.artista} - ${cancionSeleccionada.cancion}.mp3`
-        : `${cancionSeleccionada.cancion}.mp3`;
+    // Backend now expects filename directly or we construct it safely
+    // The API returns 'filename' in the song object now
+    let nombreArchivo = cancionSeleccionada.filename;
 
-    // Fix for files that might not have artist in filename if it was parsed differently
-    // Ideally the backend provides a direct ID or path, but we use filename logic for now
+    if (!nombreArchivo) {
+        // Fallback if filename missing
+        nombreArchivo = cancionSeleccionada.artista
+            ? `${cancionSeleccionada.artista} - ${cancionSeleccionada.titulo}.mp3`
+            : `${cancionSeleccionada.titulo}.mp3`;
+    }
 
     const src = `/reproducir?cancion=${encodeURIComponent(nombreArchivo)}&album=${encodeURIComponent(albumActual)}`;
     audioPlayer.src = src;
@@ -254,7 +258,7 @@ function reproducirSiguienteCancion() {
         // For simplicity, we just play it and don't highlight if not in list
         cancionSeleccionada = next;
         // Update UI info manually since it might not be in the list
-        document.getElementById("cancionActual").textContent = next.cancion;
+        document.getElementById("cancionActual").textContent = next.titulo;
         document.getElementById("artistaActual").textContent = next.artista;
         reproducirCancion();
         return;
@@ -319,17 +323,26 @@ function descargar() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast("Descarga completada");
-                cargarCancionesAlbum(albumActual);
+                if (data.exists) {
+                    showToast(data.message, "info"); // Yellow/Info for existing
+                } else {
+                    showToast(data.message, "success");
+                }
+                cargarCancionesAlbum("Home"); // Always refresh Home/Current
             } else {
-                showToast("Error en la descarga", "error");
+                showToast(data.error || "Error en la descarga", "error");
             }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Error de red", "error");
         });
 }
 
 function eliminarCancion(nombreCancion) {
     if (!confirm(`¿Eliminar ${nombreCancion}?`)) return;
 
+    // Backend expects filename now
     fetch(`/eliminar?cancion=${encodeURIComponent(nombreCancion)}`)
         .then(res => res.json())
         .then(data => {
@@ -345,7 +358,7 @@ function eliminarCancion(nombreCancion) {
 function agregarColaDirecto(index) {
     const cancion = cancionesAlbum[index];
     colaReproduccion.push(cancion);
-    showToast(`Agregada a la cola: ${cancion.cancion}`);
+    showToast(`Agregada a la cola: ${cancion.titulo}`);
 }
 
 function mostrarCola() {
