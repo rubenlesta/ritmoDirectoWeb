@@ -1,19 +1,12 @@
-# Ignorar carpeta del entorno virtual
-venv/
-
-# Ignorar archivo de cookies
-cookies
-cookies.txt
-prueba.txt
-
-# Otros típicos de Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.log
-*.sqlite3
+*.py[cod]
+*$py.class
 .env
-
-# Carpeta mp3
+.venv
+env/
+venv/
+*.mp3
 mp3/
+albumes_txt/
+instance/
+cookies.txt
