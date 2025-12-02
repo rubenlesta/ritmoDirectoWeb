@@ -1,87 +1,57 @@
-# ritmoDirectoWeb
-Paso a web de ritmoDirecto
+# RitmoDirectoWeb
 
-#Convertidor_mp3
-Convertidor de youtube a mp3 sin anuncios
+Aplicación web para gestionar y reproducir tu colección de música local.
 
-Aplicación personal en Python para descargar música de YouTube como archivos MP3 y reproducirlos localmente en tu sistema.
+## Características
 
----
+- **Gestión de Álbumes**: Organiza tus canciones en álbumes.
+- **Reproducción**: Reproductor integrado con soporte para listas de reproducción.
+- **Descarga**: Descarga canciones desde YouTube (requiere `cookies.txt`).
+- **Estadísticas**: Visualiza tus hábitos de escucha (Top canciones, artistas, tiempo total).
 
-## ✅ Requisitos
+## Requisitos
 
-- **Python 3.12** (o superior recomendado)
-- **pip**
-- **ffmpeg** (instalado en el sistema)
-- **mpg123** (para reproducir los mp3 en terminal)
+- Python 3.8+
+- FFmpeg (para la conversión de audio)
+- Dependencias listadas en `requirements.txt` (si existe) o instalar:
+  ```bash
+  pip install flask flask-sqlalchemy yt-dlp mutagen python-dotenv pymysql
+  ```
 
----
+## Configuración
 
-## 🔧 Instalación
+1.  Asegúrate de tener el archivo `.env` configurado correctamente (ver `.env.example` o crear uno nuevo).
+2.  El archivo `cookies.txt` es necesario para las descargas de YouTube.
 
-1. **Clona el repositorio**
+## Ejecución
+
+### Aplicación Principal
+
+Para iniciar la aplicación principal (reproductor):
 
 ```bash
-git clone https://github.com/rubenlesta/convertidor_mp3.git
-cd convertidor_mp3
+python run.py
+```
 
----
+La aplicación estará disponible en `http://localhost:5000`.
 
-2. Crea un entorno virtual
+### Estadísticas
 
-python3 -m venv yt-env
-source yt-env/bin/activate
+Para iniciar el servicio de estadísticas:
 
----
+```bash
+python stats_app.py
+```
 
-3. Instala dependencias
+Las estadísticas estarán disponibles en `http://localhost:5002`.
 
-pip install -r requirements.txt
+## Almacenamiento de Datos
 
----
+- **Música**: Los archivos MP3 se guardan en la carpeta `mp3/`.
+- **Base de Datos**: La información de canciones, álbumes y **estadísticas** se guarda en la base de datos configurada en `.env` (por defecto MySQL/MariaDB).
+    - Las estadísticas (reproducciones, última vez escuchado) se almacenan en la tabla `canciones` dentro de las columnas `plays` y `last_played`.
 
-4. Exporta cookies
+## Solución de Problemas
 
-Usa la extensión Get cookies.txt en tu navegador.
-Accede a YouTube logueado y guarda las cookies en formato Netscape como cookies.txt.
-Mueve cookies.txt a la carpeta anterior a la raiz de este proyecto.
-
----
-
-5. Como descargar desde Makefile
-
-Tienes 3 opciones:
-
-Url -> make song https://www.youtube.com/watch?v=abc123
-Titulo -> make tema "Bohemian Rhapsody Queen"
-Archivo con varias urls -> make music urls.txt
-
----
-
-6. Como reproducir musica desde terminal
-
-sudo apt install mpg123
-mpg123 cancion.mp3
-
-La musica se descargara por defecto en ../mp3, para cambiar, se cambia en convertidor.py
-
-Si no quieres usar mpg123 siempre, haz:
-
-nano ~/.bashrc 
-
-Al final de todo mete la linea:
-
-alias play=mpg123
-Ctrl + X
-S
-source ~/.bashrc
-
-Ahora en vez de poner mpg123, usas play:
-
-play cancion.mp3
-
----
-
-7. Disfruta
-
-Nada mas por ahora
+- **Sincronización**: Si las canciones no aparecen, intenta refrescar la página. La aplicación escanea la carpeta `mp3/` automáticamente al listar los álbumes.
+- **Descargas**: Si fallan las descargas, verifica que `cookies.txt` esté actualizado.

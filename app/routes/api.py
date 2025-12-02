@@ -1,9 +1,8 @@
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, jsonify, request, send_from_directory, current_app
 from app.services.music_service import MusicService
 from app.config import Config
 from app.models import db, Album
 import os
-import random
 
 api_bp = Blueprint('api', __name__)
 
@@ -34,7 +33,7 @@ def download():
         return jsonify({"success": False, "error": "Entrada vacía"})
     
     try:
-        result = MusicService.download_song(entry, Config.MP3_FOLDER)
+        result = MusicService.download_song(entry, current_app.config['MP3_FOLDER'])
         return jsonify(result)
     except Exception as e:
         print(f"Error: {e}")
@@ -49,10 +48,10 @@ def play():
     if not filename.endswith(".mp3"):
         filename += ".mp3"
         
-    path = os.path.join(Config.MP3_FOLDER, filename)
+    path = os.path.join(current_app.config['MP3_FOLDER'], filename)
     
     if os.path.exists(path):
-        return send_from_directory(Config.MP3_FOLDER, filename)
+        return send_from_directory(current_app.config['MP3_FOLDER'], filename)
     
     return jsonify({"success": False, "error": "Archivo no encontrado"})
 
@@ -74,23 +73,59 @@ def create_album():
 @api_bp.route("/eliminar")
 def delete_song():
     filename = request.args.get("cancion", "")
-    # Implement delete logic if needed (remove from DB and FS)
-    # For now, just FS
+    album_nombre = request.args.get("album", "Home")
+    
     if not filename.endswith(".mp3"):
         filename += ".mp3"
         
-    path = os.path.join(Config.MP3_FOLDER, filename)
-    if os.path.exists(path):
-        os.remove(path)
-        # Also remove from DB (Sync will handle it or we do it explicitly)
-        # Explicit is better
-        from app.models import Cancion
-        c = Cancion.query.filter_by(filename=filename).first()
-        if c:
-            db.session.delete(c)
-            db.session.commit()
-        return jsonify({"success": True})
-    return jsonify({"success": False, "error": "No encontrado"})
+    from app.models import Cancion, Album, AlbumCancion
+    cancion = Cancion.query.filter_by(filename=filename).first()
+    
+    if not cancion:
+        return jsonify({"success": False, "error": "Canción no encontrada"})
+
+    if album_nombre == "Home" or album_nombre == "Sin clasificar":
+        # Delete from FS and DB (Cascades should handle links)
+        path = os.path.join(current_app.config['MP3_FOLDER'], filename)
+        if os.path.exists(path):
+            os.remove(path)
+        
+        db.session.delete(cancion)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Canción eliminada definitivamente"})
+    else:
+        # Remove only from specific album
+        album = Album.query.filter_by(nombre=album_nombre).first()
+        if album:
+            link = AlbumCancion.query.filter_by(album_id=album.id, cancion_id=cancion.id).first()
+            if link:
+                db.session.delete(link)
+                db.session.commit()
+                return jsonify({"success": True, "message": f"Eliminada del álbum {album_nombre}"})
+            else:
+                return jsonify({"success": False, "error": "No está en este álbum"})
+        else:
+            return jsonify({"success": False, "error": "Álbum no encontrado"})
+
+@api_bp.route("/api/record_play", methods=["POST"])
+def record_play():
+    data = request.get_json()
+    filename = data.get("filename")
+    
+    if not filename:
+        return jsonify({"success": False, "error": "Filename required"})
+        
+    from app.models import Cancion
+    from datetime import datetime
+    
+    cancion = Cancion.query.filter_by(filename=filename).first()
+    if cancion:
+        cancion.plays += 1
+        cancion.last_played = datetime.now()
+        db.session.commit()
+        return jsonify({"success": True, "plays": cancion.plays})
+    
+    return jsonify({"success": False, "error": "Song not found"})
 
 @api_bp.route("/api/agregar_a_album", methods=["POST"])
 def add_to_album():

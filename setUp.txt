@@ -1,6 +1,0 @@
-python3 run.py
-
-http://localhost:5000   # El puerto sera el que se indique en el archivo .env
-
-python3 init_db.py      # Inicializa la base de datos
-python3 inspect_db.py   # Revisa la base de datos

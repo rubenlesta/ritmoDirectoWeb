@@ -9,6 +9,8 @@ class Cancion(db.Model):
     artista = db.Column(db.String(255))
     duracion = db.Column(db.String(10))
     filename = db.Column(db.String(255), unique=True, nullable=False) # Store actual filename
+    plays = db.Column(db.Integer, default=0)
+    last_played = db.Column(db.DateTime, nullable=True)
 
     albumes = db.relationship("AlbumCancion", back_populates="cancion", cascade="all, delete-orphan")
 

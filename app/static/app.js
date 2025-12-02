@@ -61,17 +61,13 @@ window.onload = () => {
 
 // --- Album Management ---
 function cargarAlbumes() {
-    fetch("/api/albumes") // Assuming we might add this endpoint or use existing logic
+    fetch("/api/albumes")
         .then(res => res.json())
         .then(data => {
-            // Fallback if API structure differs, adapting to old structure for now
-            // The old endpoint returned {albumes: ["name1", "name2"]}
             renderAlbumList(data.albumes || []);
         })
         .catch(error => {
             console.error("Error loading albums:", error);
-            // Fallback to old endpoint if new one not ready
-            fetch("/albumes").then(r => r.json()).then(d => renderAlbumList(d.albumes));
         });
 }
 
@@ -149,9 +145,6 @@ function renderSongs() {
             <td>${cancion.artista || 'Desconocido'}</td>
             <td>${cancion.duracion}</td>
             <td>
-                <button class="action-btn-small" onclick="event.stopPropagation(); eliminarCancion('${cancion.filename}')" title="Eliminar">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
                 <button class="action-btn-small" onclick="event.stopPropagation(); agregarColaDirecto(${index})" title="Agregar a cola">
                     <i class="fa-solid fa-plus"></i>
                 </button>
@@ -185,8 +178,6 @@ function reproducirCancion() {
     const audioPlayer = document.getElementById("audioPlayer");
     const playIcon = document.getElementById("playIcon");
 
-    // Backend now expects filename directly or we construct it safely
-    // The API returns 'filename' in the song object now
     let nombreArchivo = cancionSeleccionada.filename;
 
     if (!nombreArchivo) {
@@ -252,6 +243,15 @@ function seek(event) {
 }
 
 function onSongEnd() {
+    // Record play
+    if (cancionSeleccionada) {
+        fetch('/api/record_play', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: cancionSeleccionada.filename })
+        }).catch(e => console.error("Error recording play:", e));
+    }
+
     if (modoAleatorio) {
         // Simple random logic
         if (cancionesAlbum.length > 0) {
@@ -356,14 +356,15 @@ function eliminarCancion(nombreCancion) {
     if (!confirm(`¿Eliminar ${nombreCancion}?`)) return;
 
     // Backend expects filename now
-    fetch(`/eliminar?cancion=${encodeURIComponent(nombreCancion)}`)
+    // Pass albumActual to handle conditional deletion
+    fetch(`/eliminar?cancion=${encodeURIComponent(nombreCancion)}&album=${encodeURIComponent(albumActual)}`)
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast("Canción eliminada");
+                showToast(data.message || "Canción eliminada");
                 cargarCancionesAlbum(albumActual);
             } else {
-                showToast("Error al eliminar", "error");
+                showToast(data.error || "Error al eliminar", "error");
             }
         });
 }

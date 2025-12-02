@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas - RitmoDirecto</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='stats.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fa-solid fa-chart-simple"></i> Mis Estadísticas</h1>
+            <p>Tu viaje musical en números</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="card total-time-card">
+                <div class="icon"><i class="fa-solid fa-clock"></i></div>
+                <div class="info">
+                    <h2>Tiempo Total</h2>
+                    <div class="value" id="totalMinutes">0</div>
+                    <div class="label">Minutos Escuchados</div>
+                </div>
+            </div>
+
+            <div class="card list-card">
+                <h2><i class="fa-solid fa-music"></i> Top 5 Canciones</h2>
+                <ul id="topSongsList">
+                    <!-- JS will populate -->
+                </ul>
+            </div>
+
+            <div class="card list-card">
+                <h2><i class="fa-solid fa-microphone-lines"></i> Top 5 Artistas</h2>
+                <ul id="topArtistsList">
+                    <!-- JS will populate -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(data => {
+                // Total Minutes
+                document.getElementById('totalMinutes').textContent = data.total_minutes;
+
+                // Top Songs
+                const songsList = document.getElementById('topSongsList');
+                data.top_songs.forEach((song, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="rank">${index + 1}</span>
+                        <div class="details">
+                            <span class="title">${song.title}</span>
+                            <span class="artist">${song.artist || 'Desconocido'}</span>
+                        </div>
+                        <span class="count">${song.plays} <small>reprod.</small></span>
+                    `;
+                    songsList.appendChild(li);
+                });
+
+                // Top Artists
+                const artistsList = document.getElementById('topArtistsList');
+                data.top_artists.forEach((artist, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="rank">${index + 1}</span>
+                        <div class="details">
+                            <span class="title">${artist.artist}</span>
+                        </div>
+                        <span class="count">${artist.plays} <small>reprod.</small></span>
+                    `;
+                    artistsList.appendChild(li);
+                });
+            });
+    </script>
+</body>
+
+</html>

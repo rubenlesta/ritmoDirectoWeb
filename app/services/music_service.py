@@ -2,6 +2,7 @@ import os
 import re
 import yt_dlp
 from mutagen.mp3 import MP3
+from flask import current_app
 from app.config import Config
 from app.models import db, Cancion, Album, AlbumCancion
 
@@ -31,9 +32,13 @@ class MusicService:
     def ensure_home_album():
         home = Album.query.filter_by(nombre="Home").first()
         if not home:
-            home = Album(nombre="Home")
-            db.session.add(home)
-            db.session.commit()
+            try:
+                home = Album(nombre="Home")
+                db.session.add(home)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                home = Album.query.filter_by(nombre="Home").first()
         return home
 
     @staticmethod
@@ -63,7 +68,7 @@ class MusicService:
         # 1. Get Info first to clean name
         ydl_opts_info = {
             'quiet': True,
-            'cookiefile': Config.COOKIES_PATH,
+            'cookiefile': current_app.config['COOKIES_PATH'],
             'noplaylist': True,
         }
         
@@ -99,7 +104,7 @@ class MusicService:
         # 3. Download
         ydl_opts = {
             'format': 'bestaudio/best',
-            'cookiefile': Config.COOKIES_PATH,
+            'cookiefile': current_app.config['COOKIES_PATH'],
             'noplaylist': True,
             'quiet': False,
             # Force filename to be exactly what we want
@@ -152,20 +157,25 @@ class MusicService:
     @staticmethod
     def sync_files():
         """Scans mp3 folder and adds missing files to DB/Home"""
-        home = MusicService.ensure_home_album()
-        
-        if not os.path.exists(Config.MP3_FOLDER):
-            return
+        try:
+            home = MusicService.ensure_home_album()
+            mp3_folder = current_app.config['MP3_FOLDER']
+            
+            if not os.path.exists(mp3_folder):
+                print(f"MP3 folder not found: {mp3_folder}")
+                return
 
-        for filename in os.listdir(Config.MP3_FOLDER):
-            if filename.endswith(".mp3"):
-                # Try to parse Artist - Title from filename
-                name_without_ext = filename[:-4]
-                if " - " in name_without_ext:
-                    artist, title = name_without_ext.split(" - ", 1)
-                else:
-                    artist, title = "Desconocido", name_without_ext
-                
-                path = os.path.join(Config.MP3_FOLDER, filename)
-                duration = MusicService.get_duration(path)
-                MusicService.add_song_to_db(filename, artist, title, duration)
+            for filename in os.listdir(mp3_folder):
+                if filename.endswith(".mp3"):
+                    # Try to parse Artist - Title from filename
+                    name_without_ext = filename[:-4]
+                    if " - " in name_without_ext:
+                        artist, title = name_without_ext.split(" - ", 1)
+                    else:
+                        artist, title = "Desconocido", name_without_ext
+                    
+                    path = os.path.join(mp3_folder, filename)
+                    duration = MusicService.get_duration(path)
+                    MusicService.add_song_to_db(filename, artist, title, duration)
+        except Exception as e:
+            print(f"Error syncing files: {e}")
