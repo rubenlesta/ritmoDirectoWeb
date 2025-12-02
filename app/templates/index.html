@@ -10,12 +10,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#8b5cf6">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3075/3075977.png">
 </head>
 
 <body>
     <div class="app-container">
+        <!-- Mobile Sidebar Overlay -->
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
         <!-- Sidebar -->
-        <aside class="sidebar glass">
+        <aside class="sidebar glass" id="sidebar">
             <div class="logo">
                 <i class="fa-solid fa-music"></i> Ritmo Directo
             </div>
@@ -34,9 +40,17 @@
         <!-- Main Content -->
         <main class="content">
             <header class="top-bar glass">
-                <div class="search-bar">
-                    <i class="fa-solid fa-search"></i>
-                    <input type="text" id="busquedaInput" placeholder="Buscar canción..." onkeyup="buscar()">
+                <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                    <button class="btn-icon mobile-menu-btn" onclick="toggleSidebar()">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="search-bar" style="flex: 1;">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="busquedaInput" placeholder="Buscar canción..." onkeyup="buscar()">
+                    </div>
+                    <button class="btn-icon" onclick="openSettings()" title="Configuración">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
                 </div>
                 <div class="actions">
                     <div class="download-group">
@@ -147,6 +161,31 @@
 
     <audio id="audioPlayer" style="display: none;"></audio>
     <div id="toast-container"></div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal glass">
+            <div class="modal-header">
+                <h3>Configuración</h3>
+                <button class="btn-text" onclick="closeSettings()"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; color: var(--text-muted);">Elige un tema:</p>
+                <div class="color-options">
+                    <div class="color-option" style="background: linear-gradient(to right, #24243e, #302b63);"
+                        onclick="setTheme('theme-blue')" title="Azul (Default)"></div>
+                    <div class="color-option" style="background: linear-gradient(to right, #4a0000, #800000);"
+                        onclick="setTheme('theme-red')" title="Rojo"></div>
+                    <div class="color-option" style="background: linear-gradient(to right, #002b00, #004d00);"
+                        onclick="setTheme('theme-green')" title="Verde"></div>
+                    <div class="color-option" style="background: linear-gradient(to right, #2b002b, #4d004d);"
+                        onclick="setTheme('theme-purple')" title="Púrpura"></div>
+                    <div class="color-option" style="background: linear-gradient(to right, #000000, #1a1a1a);"
+                        onclick="setTheme('theme-black')" title="Negro"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

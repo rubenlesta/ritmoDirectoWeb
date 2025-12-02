@@ -1,0 +1,14 @@
+ * Serving Flask app 'stats_app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.17:5001
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 784-476-877
+192.168.1.7 - - [02/Dec/2025 23:23:49] "GET / HTTP/1.1" 200 -
+192.168.1.7 - - [02/Dec/2025 23:23:49] "GET /static/stats.css HTTP/1.1" 200 -
+192.168.1.7 - - [02/Dec/2025 23:23:49] "GET /static/manifest.json HTTP/1.1" 200 -
+192.168.1.7 - - [02/Dec/2025 23:23:49] "GET /api/stats HTTP/1.1" 200 -

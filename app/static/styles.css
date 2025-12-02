@@ -12,6 +12,32 @@
     --player-height: 90px;
 }
 
+/* Theme Classes */
+body.theme-blue {
+    --bg-gradient: linear-gradient(to right, #24243e, #302b63, #0f0c29);
+    --primary-color: #00d2ff;
+}
+
+body.theme-red {
+    --bg-gradient: linear-gradient(to right, #4a0000, #800000, #2b0000);
+    --primary-color: #ff4d4d;
+}
+
+body.theme-green {
+    --bg-gradient: linear-gradient(to right, #002b00, #004d00, #001a00);
+    --primary-color: #00ff00;
+}
+
+body.theme-purple {
+    --bg-gradient: linear-gradient(to right, #2b002b, #4d004d, #1a001a);
+    --primary-color: #d200ff;
+}
+
+body.theme-black {
+    --bg-gradient: linear-gradient(to right, #000000, #1a1a1a, #000000);
+    --primary-color: #ffffff;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -46,6 +72,7 @@ body {
     flex-direction: column;
     padding: 20px;
     border-right: 1px solid var(--glass-border);
+    transition: transform 0.3s ease;
 }
 
 .logo {
@@ -115,6 +142,7 @@ body {
     padding: 20px;
     gap: 20px;
     overflow: hidden;
+    position: relative;
 }
 
 .top-bar {
@@ -123,6 +151,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
 }
 
 .search-bar {
@@ -190,6 +219,7 @@ body {
     border-radius: 50%;
     cursor: pointer;
     transition: background 0.2s;
+    border: none;
 }
 
 .btn-icon:hover {
@@ -264,6 +294,8 @@ tbody tr.selected {
     padding: 0 30px;
     border-top: 1px solid var(--glass-border);
     z-index: 100;
+    background: rgba(15, 12, 41, 0.95);
+    /* Ensure background is solid enough */
 }
 
 .now-playing {
@@ -273,11 +305,17 @@ tbody tr.selected {
 .track-title {
     font-weight: 600;
     margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .track-artist {
     font-size: 0.85rem;
     color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .player-controls-container {
@@ -342,6 +380,9 @@ tbody tr.selected {
     border-radius: 2px;
     cursor: pointer;
     position: relative;
+    padding: 5px 0;
+    /* Increase touch area */
+    background-clip: content-box;
 }
 
 .progress-fill {
@@ -555,4 +596,221 @@ tbody tr.selected {
     right: 100%;
     margin-left: 0;
     margin-right: 5px;
+}
+
+/* Settings Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal {
+    background: #1a1a2e;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 20px;
+    width: 90%;
+    max-width: 400px;
+    transform: translateY(20px);
+    transition: transform 0.3s;
+}
+
+.modal-overlay.open .modal {
+    transform: translateY(0);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.color-options {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.color-option {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+}
+
+.color-option.selected {
+    border-color: white;
+    transform: scale(1.1);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+        height: 100vh;
+        /* Full height */
+    }
+
+    /* Sidebar as a bottom sheet or hidden menu */
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        bottom: 0;
+        width: 80%;
+        z-index: 200;
+        background: #0f0c29;
+        /* Solid background */
+        transition: left 0.3s ease;
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    /* Overlay for sidebar */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 150;
+        display: none;
+    }
+
+    .sidebar-overlay.open {
+        display: block;
+    }
+
+    .content {
+        padding: 10px;
+        padding-bottom: calc(var(--player-height) + 10px);
+        /* Space for player */
+    }
+
+    .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .search-bar {
+        width: 100%;
+    }
+
+    .actions {
+        justify-content: space-between;
+    }
+
+    .download-group {
+        flex: 1;
+    }
+
+    .download-group input {
+        width: 100%;
+    }
+
+    /* Hide less important columns in table */
+    th:nth-child(4),
+    td:nth-child(4) {
+        /* Duration */
+        display: none;
+    }
+
+    th:nth-child(1),
+    td:nth-child(1) {
+        /* # */
+        width: 30px;
+        padding-left: 10px;
+    }
+
+    th,
+    td {
+        padding: 10px 5px;
+        font-size: 0.9rem;
+    }
+
+    /* Player Bar adjustments */
+    .player-bar {
+        padding: 0 10px;
+        flex-direction: row;
+        /* Keep row but compact */
+    }
+
+    .now-playing {
+        width: 30%;
+        font-size: 0.8rem;
+    }
+
+    .player-controls-container {
+        width: 70%;
+    }
+
+    .controls {
+        gap: 15px;
+    }
+
+    .btn-control {
+        font-size: 1rem;
+    }
+
+    .btn-control.play-btn {
+        width: 35px;
+        height: 35px;
+    }
+
+    .progress-area {
+        font-size: 0.7rem;
+    }
+
+    /* Hide volume controls on mobile */
+    .volume-controls {
+        display: none;
+    }
+
+    /* Hamburger menu button (we'll add this to HTML) */
+    .mobile-menu-btn {
+        display: block;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-menu-btn {
+        display: none;
+    }
+
+    .sidebar-overlay {
+        display: none;
+    }
 }
