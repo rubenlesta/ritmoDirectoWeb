@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -42,20 +43,20 @@
                     <i class="fa-solid fa-search"></i>
                     <input type="text" id="busquedaInput" placeholder="Buscar canción..." onkeyup="buscar()">
                 </div>
-                
+
                 <div class="actions">
                     <button class="btn-upload" onclick="triggerUpload()" title="Subir MP3s">
                         <i class="fa-solid fa-cloud-arrow-up"></i> Subir MP3
                     </button>
                     <input type="file" id="mp3UploadInput" multiple hidden accept=".mp3">
-                    
+
                     <div class="download-group">
                         <input type="text" id="urlInput" placeholder="URL Youtube">
                         <button class="btn-primary" onclick="descargar()" title="Descargar">
                             <i class="fa-solid fa-download"></i>
                         </button>
                     </div>
-                    
+
                     <!-- Legacy TXT disabled in UI but kept in code if needed, now hidden -->
                     <input type="file" id="archivoTxt" accept=".txt" style="display:none" />
                 </div>
@@ -65,7 +66,12 @@
                 <table id="cancionesLista">
                     <thead>
                         <tr>
-                            <th width="5%"></th>
+                            <th width="5%">
+                                <label class="checkbox-wrapper-custom">
+                                    <input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)">
+                                    <span class="custom-checkmark"></span>
+                                </label>
+                            </th>
                             <th width="5%">#</th>
                             <th width="40%">Título</th>
                             <th width="30%">Artista</th>
@@ -146,11 +152,12 @@
                 <span id="duration">0:00</span>
             </div>
         </div>
-        
+
         <div style="width: 200px;"></div> <!-- Spacer to balance layout -->
     </footer>
 
     <audio id="audioPlayer" style="display: none;"></audio>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
+
 </html>

@@ -206,6 +206,13 @@ function renderSongs() {
     }
     emptyState.style.display = 'none';
 
+    // Update Master Checkbox
+    const masterCheckbox = document.getElementById('selectAllCheckbox');
+    if (masterCheckbox) {
+        const allSelected = cancionesAlbum.length > 0 && cancionesAlbum.every(c => selectedSongs.has(c.filename));
+        masterCheckbox.checked = allSelected;
+    }
+
     cancionesAlbum.forEach((cancion, index) => {
         const row = document.createElement("tr");
         const isSelected = selectedSongs.has(cancion.filename);
@@ -213,10 +220,10 @@ function renderSongs() {
 
         row.innerHTML = `
             <td>
-                <div class="checkbox-wrapper-custom">
-                    <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSelection('${cancion.filename}', this)">
+                <label class="checkbox-wrapper-custom">
+                    <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSelection(${index}, this)">
                     <span class="custom-checkmark"></span>
-                </div>
+                </label>
             </td>
             <td>${index + 1}</td>
             <td>${cancion.titulo}</td>
@@ -588,8 +595,22 @@ function buscar() {
 }
 
 // --- Batch Actions Functions ---
-function toggleSelection(filename, checkbox) {
-    if (filename) {
+function toggleSelectAll(checkbox) {
+    if (checkbox.checked) {
+        cancionesAlbum.forEach(c => {
+            if (c.filename) selectedSongs.add(c.filename);
+        });
+    } else {
+        selectedSongs.clear();
+    }
+    renderSongs();
+    updateBatchToolbar();
+}
+
+function toggleSelection(index, checkbox) {
+    const song = cancionesAlbum[index];
+    if (song && song.filename) {
+        const filename = song.filename;
         if (selectedSongs.has(filename)) {
             selectedSongs.delete(filename);
             if (checkbox) checkbox.closest('tr').classList.remove('selected-batch');
@@ -599,6 +620,12 @@ function toggleSelection(filename, checkbox) {
         }
     }
     updateBatchToolbar();
+
+    // Update Master Checkbox state
+    const masterCheckbox = document.getElementById('selectAllCheckbox');
+    if (masterCheckbox) {
+        masterCheckbox.checked = cancionesAlbum.length > 0 && cancionesAlbum.every(c => selectedSongs.has(c.filename));
+    }
 }
 
 function updateBatchToolbar() {
@@ -671,8 +698,8 @@ function batchAddToAlbum(albumName) {
         .then(data => {
             if (data.success) {
                 showToast(data.message);
-                selectedSongs.clear();
-                updateBatchToolbar();
+                // selectedSongs.clear(); // Removed to persist selection
+                // updateBatchToolbar(); // Removed as selection hasn't changed
             } else {
                 showToast(data.error, 'error');
             }
