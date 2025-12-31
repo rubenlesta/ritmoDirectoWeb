@@ -4,8 +4,7 @@ __pycache__/
 .venv
 env/
 venv/
-*.mp3
 mp3/
-albumes_txt/
 instance/
 cookies.txt
+*.log

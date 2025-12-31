@@ -1,0 +1,38 @@
+#!/bin/bash
+# setUp script for RitmoDirecto
+set -e
+
+# 1. Create .env file dynamically with current user values but portable paths
+# We use SQLite to ensure it works without external DB setup
+cat > .env <<EOF
+FLASK_APP=run.py
+FLASK_ENV=development
+SECRET_KEY=dev_secret_key
+DATABASE_URL=sqlite:///site.db
+MP3_FOLDER=$(pwd)/mp3
+ALBUMES_TXT_FOLDER=$(pwd)/albumes_txt
+COOKIES_PATH=$(pwd)/cookies.txt
+PORT=5000
+STATS_PORT=5001
+EOF
+
+# 2. Setup Virtual Environment
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+fi
+
+# 3. Install Dependencies
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r scripts/requirements.txt
+
+# 4. Initialize Database
+export PYTHONPATH=$PYTHONPATH:.
+python3 scripts/init_db.py
+
+# 5. Create directories
+mkdir -p mp3
+mkdir -p instance
+mkdir -p albumes_txt
+
+exit 0

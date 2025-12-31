@@ -1,19 +1,25 @@
 #!/bin/bash
 
-# Kill existing processes on ports 5000 and 5001 if needed (optional, be careful)
-# fuser -k 5000/tcp
-# fuser -k 5001/tcp
+# Activar entorno virtual
+source venv/bin/activate
+
+# Añadir directorio actual al PYTHONPATH para que los scripts encuentren el paquete 'app'
+export PYTHONPATH=$PYTHONPATH:.
 
 echo "Starting RitmoDirecto..."
 
-# Start Stats App in background
-python3 stats_app.py > stats.log 2>&1 &
+# Start Stats App in background (desde carpeta scripts)
+# Redirigimos logs si se desea
+# python3 scripts/stats_app.py > stats.log 2>&1 &
+# O simplemente:
+python3 scripts/stats_app.py > stats.log 2>&1 &
 STATS_PID=$!
-echo "Stats App started (PID: $STATS_PID) on port 5001"
+echo "Stats App started (PID: $STATS_PID)"
 
-# Start Main App
-echo "Starting Main App on port 5000..."
+# Start Main App (desde root)
+echo "Starting Main App..."
 python3 run.py
 
-# When main app exits, kill stats app
+# Al salir (Ctrl+C), matar el proceso de stats
+echo "Stopping Stats App..."
 kill $STATS_PID
