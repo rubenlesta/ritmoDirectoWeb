@@ -13,6 +13,11 @@ class MusicService:
         text = re.sub(r'\([^)]*\)', '', text)
         # Remove content in brackets
         text = re.sub(r'\[[^]]*\]', '', text)
+        
+        # Remove 'ft.' or 'feat.' and everything after (case insensitive)
+        # Matches " ft " or " feat " or " ft." or " feat." followed by anything
+        text = re.sub(r'\s+(ft\.?|feat\.?|featuring).*$', '', text, flags=re.IGNORECASE)
+        
         # Remove extra spaces
         text = " ".join(text.split())
         return text
