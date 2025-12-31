@@ -45,19 +45,88 @@ window.onload = () => {
     cargarAlbumes();
     cargarCancionesAlbum("Sin clasificar");
 
-    // File upload handler
+    // File upload handler (Legacy TXT)
     const fileInput = document.getElementById('archivoTxt');
     if (fileInput) {
         fileInput.addEventListener('change', function (event) {
             const archivo = event.target.files[0];
             if (archivo) {
                 document.getElementById('urlInput').value = archivo.name;
-                // Auto upload logic could go here
-                descargar(); // Trigger download flow
+                descargar();
             }
         });
     }
+
+    // MP3 Upload Handler
+    const mp3Input = document.getElementById('mp3UploadInput');
+    if (mp3Input) {
+        mp3Input.addEventListener('change', handleFileUpload);
+    }
 };
+
+// --- Global State ---
+let selectedSongs = new Set();
+let isSelectionMode = false;
+
+// --- Loading Bar ---
+function showLoading() {
+    const bar = document.getElementById('loading-bar');
+    if (bar) bar.style.width = '100%';
+}
+
+function hideLoading() {
+    const bar = document.getElementById('loading-bar');
+    if (bar) {
+        bar.style.width = '100%';
+        setTimeout(() => {
+            bar.style.width = '0%';
+        }, 300);
+    }
+}
+
+// --- MP3 Upload ---
+function triggerUpload() {
+    document.getElementById('mp3UploadInput').click();
+}
+
+function handleFileUpload(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    showLoading();
+    showToast(`Subiendo ${files.length} archivos...`);
+
+    let uploadedCount = 0;
+    const total = files.length;
+    const promises = [];
+
+    for (let i = 0; i < total; i++) {
+        const formData = new FormData();
+        formData.append('file', files[i]);
+
+        promises.push(
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            }).then(res => res.json())
+        );
+    }
+
+    Promise.all(promises)
+        .then(results => {
+            const success = results.filter(r => r.success).length;
+            showToast(`Subidos ${success} de ${total} archivos`);
+            cargarCancionesAlbum("Home"); // Refresh
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Error en la subida", 'error');
+        })
+        .finally(() => {
+            hideLoading();
+            event.target.value = ''; // Reset input
+        });
+}
 
 // --- Album Management ---
 function cargarAlbumes() {
@@ -139,7 +208,16 @@ function renderSongs() {
 
     cancionesAlbum.forEach((cancion, index) => {
         const row = document.createElement("tr");
+        const isSelected = selectedSongs.has(cancion.filename);
+        if (isSelected) row.classList.add('selected-batch');
+
         row.innerHTML = `
+            <td>
+                <div class="checkbox-wrapper-custom">
+                    <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSelection('${cancion.filename}', this)">
+                    <span class="custom-checkmark"></span>
+                </div>
+            </td>
             <td>${index + 1}</td>
             <td>${cancion.titulo}</td>
             <td>${cancion.artista || 'Desconocido'}</td>
@@ -507,4 +585,97 @@ function buscar() {
         const text = row.innerText.toLowerCase();
         row.style.display = text.includes(texto) ? "" : "none";
     });
+}
+
+// --- Batch Actions Functions ---
+function toggleSelection(filename, checkbox) {
+    if (filename) {
+        if (selectedSongs.has(filename)) {
+            selectedSongs.delete(filename);
+            if (checkbox) checkbox.closest('tr').classList.remove('selected-batch');
+        } else {
+            selectedSongs.add(filename);
+            if (checkbox) checkbox.closest('tr').classList.add('selected-batch');
+        }
+    }
+    updateBatchToolbar();
+}
+
+function updateBatchToolbar() {
+    let toolbar = document.getElementById('batchToolbar');
+    // Create toolbar if not exists
+    if (!toolbar) {
+        toolbar = document.createElement('div');
+        toolbar.id = 'batchToolbar';
+        toolbar.className = 'batch-toolbar';
+        toolbar.innerHTML = `
+            <span id="selectedCount">0 seleccionada(s)</span>
+            <div class="batch-actions">
+                <button onclick="batchAddToAlbum(prompt('Nombre del álbum:'))" class="action-btn-small" title="Añadir a Álbum"><i class="fa-solid fa-folder-plus"></i></button>
+                <button onclick="batchDelete()" class="action-btn-danger" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `;
+        document.body.appendChild(toolbar);
+    }
+
+    const countSpan = document.getElementById('selectedCount');
+
+    if (selectedSongs.size > 0) {
+        toolbar.classList.add('visible');
+        if (countSpan) countSpan.textContent = `${selectedSongs.size} seleccionada(s)`;
+    } else {
+        toolbar.classList.remove('visible');
+    }
+}
+
+function batchDelete() {
+    if (selectedSongs.size === 0) return;
+    if (!confirm(`¿Eliminar ${selectedSongs.size} canciones?`)) return;
+
+    showLoading();
+    fetch('/api/batch/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            filenames: Array.from(selectedSongs),
+            album: albumActual
+        })
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                selectedSongs.clear();
+                cargarCancionesAlbum(albumActual);
+            } else {
+                showToast(data.error, 'error');
+            }
+        })
+        .finally(() => hideLoading());
+}
+
+function batchAddToAlbum(albumName) {
+    if (!albumName) return;
+    if (selectedSongs.size === 0) return;
+
+    showLoading();
+    fetch('/api/batch/add_to_album', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            filenames: Array.from(selectedSongs),
+            album: albumName
+        })
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                selectedSongs.clear();
+                updateBatchToolbar();
+            } else {
+                showToast(data.error, 'error');
+            }
+        })
+        .finally(() => hideLoading());
 }

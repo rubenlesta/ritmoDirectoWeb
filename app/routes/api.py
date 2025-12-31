@@ -156,3 +156,103 @@ def add_to_album():
     db.session.commit()
     
     return jsonify({"success": True})
+
+@api_bp.route("/api/upload", methods=["POST"])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "No file part"})
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No selected file"})
+        
+    if file and file.filename.endswith('.mp3'):
+        from werkzeug.utils import secure_filename
+        filename = secure_filename(file.filename)
+        path = os.path.join(current_app.config['MP3_FOLDER'], filename)
+        file.save(path)
+        
+        # Sync to ensure it's in DB
+        # Optimization: Just add this specific file
+        duration = MusicService.get_duration(path)
+        # Parse artist - title if possible
+        clean_name = filename[:-4]
+        if " - " in clean_name:
+            artist, title = clean_name.split(" - ", 1)
+        else:
+            artist, title = "Desconocido", clean_name
+            
+        MusicService.add_song_to_db(filename, artist, title, duration)
+        
+        return jsonify({"success": True, "message": "File uploaded successfully"})
+        
+    return jsonify({"success": False, "error": "Invalid file type (MP3 only)"})
+
+@api_bp.route("/api/batch/delete", methods=["POST"])
+def batch_delete():
+    data = request.get_json()
+    filenames = data.get("filenames", [])
+    album_nombre = data.get("album", "Home")
+    
+    if not filenames:
+        return jsonify({"success": False, "error": "No songs selected"})
+        
+    from app.models import Cancion, Album, AlbumCancion
+    
+    deleted_count = 0
+    
+    if album_nombre == "Home" or album_nombre == "Sin clasificar":
+        # Delete definitely
+        for filename in filenames:
+             cancion = Cancion.query.filter_by(filename=filename).first()
+             if cancion:
+                 path = os.path.join(current_app.config['MP3_FOLDER'], filename)
+                 if os.path.exists(path):
+                     os.remove(path)
+                 db.session.delete(cancion)
+                 deleted_count += 1
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Eliminadas {deleted_count} canciones permanentemente"})
+    else:
+        # Remove from album
+        album = Album.query.filter_by(nombre=album_nombre).first()
+        if not album:
+            return jsonify({"success": False, "error": "Album not found"})
+            
+        for filename in filenames:
+            cancion = Cancion.query.filter_by(filename=filename).first()
+            if cancion:
+                link = AlbumCancion.query.filter_by(album_id=album.id, cancion_id=cancion.id).first()
+                if link:
+                    db.session.delete(link)
+                    deleted_count += 1
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Eliminadas {deleted_count} canciones del álbum {album_nombre}"})
+
+@api_bp.route("/api/batch/add_to_album", methods=["POST"])
+def batch_add_to_album():
+    data = request.get_json()
+    filenames = data.get("filenames", [])
+    album_nombre = data.get("album")
+    
+    if not filenames or not album_nombre:
+        return jsonify({"success": False, "error": "Missing data"})
+        
+    from app.models import Cancion, Album, AlbumCancion
+    
+    album = Album.query.filter_by(nombre=album_nombre).first()
+    if not album:
+        return jsonify({"success": False, "error": "Album not found"})
+        
+    added_count = 0
+    for filename in filenames:
+        cancion = Cancion.query.filter_by(filename=filename).first()
+        if cancion:
+            exists = AlbumCancion.query.filter_by(album_id=album.id, cancion_id=cancion.id).first()
+            if not exists:
+                link = AlbumCancion(album_id=album.id, cancion_id=cancion.id)
+                db.session.add(link)
+                added_count += 1
+                
+    db.session.commit()
+    return jsonify({"success": True, "message": f"Añadidas {added_count} canciones a {album_nombre}"})

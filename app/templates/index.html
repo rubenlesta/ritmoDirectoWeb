@@ -1,27 +1,25 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ritmo Directo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#8b5cf6">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3075/3075977.png">
+    <meta name="theme-color" content="#050505">
 </head>
 
 <body>
-    <div class="app-container">
-        <!-- Mobile Sidebar Overlay -->
-        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div id="loading-bar"></div>
+    <div id="toast-container"></div>
 
+    <div class="app-container">
         <!-- Sidebar -->
-        <aside class="sidebar glass" id="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="logo">
                 <i class="fa-solid fa-music"></i> Ritmo Directo
             </div>
@@ -39,42 +37,40 @@
 
         <!-- Main Content -->
         <main class="content">
-            <header class="top-bar glass">
-                <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                    <button class="btn-icon mobile-menu-btn" onclick="toggleSidebar()">
-                        <i class="fa-solid fa-bars"></i>
-                    </button>
-                    <div class="search-bar" style="flex: 1;">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" id="busquedaInput" placeholder="Buscar canción..." onkeyup="buscar()">
-                    </div>
-                    <button class="btn-icon" onclick="openSettings()" title="Configuración">
-                        <i class="fa-solid fa-gear"></i>
-                    </button>
+            <header class="top-bar">
+                <div class="search-bar">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" id="busquedaInput" placeholder="Buscar canción..." onkeyup="buscar()">
                 </div>
+                
                 <div class="actions">
+                    <button class="btn-upload" onclick="triggerUpload()" title="Subir MP3s">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Subir MP3
+                    </button>
+                    <input type="file" id="mp3UploadInput" multiple hidden accept=".mp3">
+                    
                     <div class="download-group">
-                        <input type="text" id="urlInput" placeholder="URL o Título para descargar">
+                        <input type="text" id="urlInput" placeholder="URL Youtube">
                         <button class="btn-primary" onclick="descargar()" title="Descargar">
                             <i class="fa-solid fa-download"></i>
                         </button>
                     </div>
-                    <label for="archivoTxt" class="btn-icon" title="Subir lista TXT">
-                        <i class="fa-solid fa-file-upload"></i>
-                    </label>
+                    
+                    <!-- Legacy TXT disabled in UI but kept in code if needed, now hidden -->
                     <input type="file" id="archivoTxt" accept=".txt" style="display:none" />
                 </div>
             </header>
 
-            <div class="song-list-container glass">
+            <div class="song-list-container">
                 <table id="cancionesLista">
                     <thead>
                         <tr>
+                            <th width="5%"></th>
                             <th width="5%">#</th>
                             <th width="40%">Título</th>
-                            <th width="35%">Artista</th>
+                            <th width="30%">Artista</th>
                             <th width="10%"><i class="fa-regular fa-clock"></i></th>
-                            <th width="10%">Acciones</th>
+                            <th width="10%"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -83,43 +79,40 @@
                 </table>
                 <div id="emptyState" class="empty-state" style="display: none;">
                     <i class="fa-solid fa-music"></i>
-                    <p>No hay canciones en este álbum</p>
+                    <p>No hay canciones</p>
                 </div>
             </div>
         </main>
 
-
         <!-- Queue Sidebar -->
-        <aside class="queue-sidebar glass" id="queueSidebar">
+        <aside class="queue-sidebar" id="queueSidebar">
             <div class="queue-header">
-                <h3>Cola de Reproducción</h3>
-                <button class="btn-text" onclick="toggleQueue()">
+                <h3>Cola</h3>
+                <button class="action-btn-small" onclick="toggleQueue()">
                     <i class="fa-solid fa-times"></i>
                 </button>
             </div>
             <div id="queueList" class="queue-list">
-                <!-- Queue items loaded dynamically -->
                 <div class="empty-queue">Cola vacía</div>
             </div>
         </aside>
     </div>
 
     <!-- Context Menu -->
-    <div id="contextMenu" class="context-menu glass" style="display: none;">
+    <div id="contextMenu" class="context-menu" style="display: none;">
         <div class="menu-item" id="ctxDelete">
             <i class="fa-solid fa-trash"></i> Borrar canción
         </div>
         <div class="menu-item has-submenu">
             <i class="fa-solid fa-folder-plus"></i> Añadir a álbum
-            <i class="fa-solid fa-chevron-right submenu-arrow"></i>
-            <div class="submenu glass" id="albumSubmenu">
+            <div class="submenu" id="albumSubmenu">
                 <!-- Albums loaded dynamically -->
             </div>
         </div>
     </div>
 
     <!-- Player Bar -->
-    <footer class="player-bar glass">
+    <footer class="player-bar">
         <div class="now-playing">
             <div class="track-info">
                 <div class="track-title" id="cancionActual">Selecciona una canción</div>
@@ -129,7 +122,7 @@
 
         <div class="player-controls-container">
             <div class="controls">
-                <button class="btn-control" onclick="cambiarModo()" id="modoReproduccion" title="Modo Aleatorio">
+                <button class="btn-control" onclick="cambiarModo()" id="modoReproduccion" title="Aleatorio">
                     <i class="fa-solid fa-shuffle"></i>
                 </button>
                 <button class="btn-control" onclick="reiniciarCancion()">
@@ -153,41 +146,11 @@
                 <span id="duration">0:00</span>
             </div>
         </div>
-
-        <div class="volume-controls">
-            <!-- Future volume controls -->
-        </div>
+        
+        <div style="width: 200px;"></div> <!-- Spacer to balance layout -->
     </footer>
 
     <audio id="audioPlayer" style="display: none;"></audio>
-    <div id="toast-container"></div>
-
-    <!-- Settings Modal -->
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal glass">
-            <div class="modal-header">
-                <h3>Configuración</h3>
-                <button class="btn-text" onclick="closeSettings()"><i class="fa-solid fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 15px; color: var(--text-muted);">Elige un tema:</p>
-                <div class="color-options">
-                    <div class="color-option" style="background: linear-gradient(to right, #24243e, #302b63);"
-                        onclick="setTheme('theme-blue')" title="Azul (Default)"></div>
-                    <div class="color-option" style="background: linear-gradient(to right, #4a0000, #800000);"
-                        onclick="setTheme('theme-red')" title="Rojo"></div>
-                    <div class="color-option" style="background: linear-gradient(to right, #002b00, #004d00);"
-                        onclick="setTheme('theme-green')" title="Verde"></div>
-                    <div class="color-option" style="background: linear-gradient(to right, #2b002b, #4d004d);"
-                        onclick="setTheme('theme-purple')" title="Púrpura"></div>
-                    <div class="color-option" style="background: linear-gradient(to right, #000000, #1a1a1a);"
-                        onclick="setTheme('theme-black')" title="Negro"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
-
 </html>
