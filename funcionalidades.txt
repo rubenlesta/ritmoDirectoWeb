@@ -1,0 +1,9 @@
+Me gustaria para la aplicacion tener las siguientes funcionalidades, quiero que modifiques el codigo, cambies lo que necesites y lo que quieras para hacerlas y que queden estructuradas profesionalmente, para que queden ordenadas y hechas como un profesional:
+· Añadir una barra de carga para cuando se este descargando una cancion, para aumentar la velocidad relativa vista del usuario
+· Funcionalidad de descargar una cancion en tu propio ordenador, ya que esta aplicacion se corre en un ser y quiero poder desde el ordenador, descargar las canciones
+· Funcionalidad de poder meter las canciones directamente a un disco (CD) y preparar este para reproducir en un reproductor como un cd, si es posible
+· Funcionalidad de tener usuarios, que tengan diferentes listas de canciones y todo lo que diferencia a usuarios. Para esto, cuando quieran descargar una cancion, se mirara en la lista de canciones  "root" por si ya esta descargada para asi no tener que volver a descargarla y poder insertarla directamente en la base de datos
+· Crear logica de negocio y que una restriccion sea que no se pueden descargar canciones de mas de 4 minutos, ya que sino ocuparian mucho
+· Poder configurar la cuenta y temas de la aplicacion como colorimetria del fondo (en la que se podra elegir desde un desplegable de una rueda de colores) desde un boton con la figura de un usuario, en el que tambien se pueda cerrar sesion cuando se quiera.
+· Quiero que puedas manejar las contraseñas con los nombres de usuario y la creacion de estas
+· Crees que falta alguna funcionalidad? proponmelas y te dire si esta bien o mal. Puedes recurrir a la creacion de modos si lo ves correcto, es decir, un modo reproductor y otro grabador de discos por ejemplo

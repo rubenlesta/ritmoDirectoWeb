@@ -34,43 +34,43 @@ class MusicService:
             return "??:??"
 
     @staticmethod
-    def ensure_home_album():
-        home = Album.query.filter_by(nombre="Home").first()
+    def ensure_home_album(user):
+        home = Album.query.filter_by(nombre="Home", user_id=user.id).first()
         if not home:
             try:
-                home = Album(nombre="Home")
+                home = Album(nombre="Home", user_id=user.id)
                 db.session.add(home)
                 db.session.commit()
             except Exception:
                 db.session.rollback()
-                home = Album.query.filter_by(nombre="Home").first()
+                home = Album.query.filter_by(nombre="Home", user_id=user.id).first()
         return home
 
     @staticmethod
-    def add_song_to_db(filename, artist, title, duration):
-        # Ensure Home album exists
-        home = MusicService.ensure_home_album()
-        
+    def add_song_to_db(filename, artist, title, duration, user=None):
         cancion = Cancion.query.filter_by(filename=filename).first()
         if not cancion:
             cancion = Cancion(titulo=title, artista=artist, duracion=duration, filename=filename)
             db.session.add(cancion)
             db.session.commit()
         
-        # Link to Home if not already linked
-        link = AlbumCancion.query.filter_by(album_id=home.id, cancion_id=cancion.id).first()
-        if not link:
-            link = AlbumCancion(album_id=home.id, cancion_id=cancion.id)
-            db.session.add(link)
-            db.session.commit()
+        if user:
+            # Link to User's Home album
+            home = MusicService.ensure_home_album(user)
+            # Link to Home if not already linked
+            link = AlbumCancion.query.filter_by(album_id=home.id, cancion_id=cancion.id).first()
+            if not link:
+                link = AlbumCancion(album_id=home.id, cancion_id=cancion.id)
+                db.session.add(link)
+                db.session.commit()
             
         return cancion
 
     @staticmethod
-    def download_song(entry, output_folder):
+    def download_song(entry, output_folder, user):
         os.makedirs(output_folder, exist_ok=True)
         
-        # 1. Get Info first to clean name
+        # 1. Get Info first to clean name and CHECK DURATION
         ydl_opts_info = {
             'quiet': True,
             'cookiefile': current_app.config['COOKIES_PATH'],
@@ -79,13 +79,18 @@ class MusicService:
         
         search_query = entry if entry.startswith("http") else f"ytsearch1:{entry}"
         
-        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-            try:
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
                 info = ydl.extract_info(search_query, download=False)
                 if 'entries' in info:
                     info = info['entries'][0]
-            except Exception as e:
-                raise Exception(f"Error fetching info: {e}")
+        except Exception as e:
+             return {"success": False, "error": f"Error searching video: {str(e)}"}
+
+        # CHECK DURATION (4 minutes = 240 seconds)
+        duration_seconds = info.get('duration', 0)
+        if duration_seconds > 240:
+             return {"success": False, "error": "La canción supera los 4 minutos permitidos."}
 
         original_title = info.get('title', 'Unknown')
         clean_title = MusicService.clean_filename(original_title)
@@ -101,10 +106,10 @@ class MusicService:
         
         # 2. Check if exists (MP3)
         if os.path.exists(filepath):
-            # Ensure it's in DB
+            # Ensure it's in DB and linked to USER
             duration = MusicService.get_duration(filepath)
-            MusicService.add_song_to_db(filename, artist, title, duration)
-            return {"success": True, "message": "La canción ya existe", "exists": True}
+            MusicService.add_song_to_db(filename, artist, title, duration, user)
+            return {"success": True, "message": "La canción ya existe y se ha añadido a tu lista", "exists": True}
 
         # 3. Download
         ydl_opts = {
@@ -123,27 +128,36 @@ class MusicService:
             'keepvideo': False,
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([info['webpage_url']])
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([info['webpage_url']])
+        except Exception as e:
+             return {"success": False, "error": f"Error descargando: {str(e)}"}
             
         # 4. Verify MP3 exists (conversion might have failed or named differently)
         if not os.path.exists(filepath):
-             # Try to find if it saved as something else and rename/convert?
-             # For now, just warn or try to find partial match?
-             # But with outtmpl it should be close.
-             pass
+             return {"success": False, "error": "Error: El archivo no aparece tras la descarga."}
 
         # 5. Add to DB
-        if os.path.exists(filepath):
-            duration = MusicService.get_duration(filepath)
-            MusicService.add_song_to_db(filename, artist, title, duration)
-            return {"success": True, "message": "Descarga completada", "exists": False}
-        else:
-             return {"success": False, "error": "Error en la conversión a MP3"}
+        duration = MusicService.get_duration(filepath)
+        MusicService.add_song_to_db(filename, artist, title, duration, user)
+        return {"success": True, "message": "Descarga completada", "exists": False}
 
     @staticmethod
-    def get_songs_by_album(album_name):
-        album = Album.query.filter_by(nombre=album_name).first()
+    def get_songs_by_album(album_name, user):
+        # ROOT ACCESS: If root, show ALL songs for "Home"
+        if user.username == 'root' and (album_name == 'Home' or album_name == 'Sin clasificar'):
+             # Return all songs in the database
+             all_songs = Cancion.query.all()
+             return [{
+                "id": c.id,
+                "titulo": c.titulo,
+                "artista": c.artista,
+                "duracion": c.duracion,
+                "filename": c.filename
+            } for c in all_songs]
+
+        album = Album.query.filter_by(nombre=album_name, user_id=user.id).first()
         if not album:
             return []
         

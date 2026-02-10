@@ -8,6 +8,13 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///site.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    # Session Config
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = False
+    REMEMBER_COOKIE_HTTPONLY = True
+    
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     MP3_FOLDER = os.environ.get('MP3_FOLDER') or os.path.join(BASE_DIR, 'mp3')
     ALBUMES_TXT_FOLDER = os.environ.get('ALBUMES_TXT_FOLDER') or os.path.join(BASE_DIR, 'albumes_txt')
