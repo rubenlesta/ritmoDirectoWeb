@@ -1,10 +1,27 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-.venv
-env/
+
+# Virtual environments
+.venv/
 venv/
-mp3/
+env/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Local data and logs
 instance/
+mp3/
 cookies.txt
 *.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Test and tool artifacts
+.pytest_cache/
+.coverage*
