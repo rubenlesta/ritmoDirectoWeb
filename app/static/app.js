@@ -45,18 +45,6 @@ window.onload = () => {
     cargarAlbumes();
     cargarCancionesAlbum("Sin clasificar");
 
-    // File upload handler (Legacy TXT)
-    const fileInput = document.getElementById('archivoTxt');
-    if (fileInput) {
-        fileInput.addEventListener('change', function (event) {
-            const archivo = event.target.files[0];
-            if (archivo) {
-                document.getElementById('urlInput').value = archivo.name;
-                descargar();
-            }
-        });
-    }
-
     // MP3 Upload Handler
     const mp3Input = document.getElementById('mp3UploadInput');
     if (mp3Input) {
@@ -387,32 +375,9 @@ function cambiarModo() {
 // --- Actions ---
 function descargar() {
     const entrada = document.getElementById("urlInput").value.trim();
-    const fileInput = document.getElementById('archivoTxt');
-
-    if (fileInput.files.length > 0) {
-        // Upload TXT logic
-        const formData = new FormData();
-        formData.append('archivoTxt', fileInput.files[0]);
-
-        showToast("Subiendo lista y descargando...", "info");
-
-        fetch('/subir_txt_album', { method: 'POST', body: formData })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    showToast("Álbum importado correctamente");
-                    cargarAlbumes();
-                    fileInput.value = '';
-                    document.getElementById("urlInput").value = '';
-                } else {
-                    showToast(data.error, 'error');
-                }
-            });
-        return;
-    }
 
     if (!entrada) {
-        showToast("Introduce una URL o selecciona un archivo", "error");
+        showToast("Introduce una URL", "error");
         return;
     }
 

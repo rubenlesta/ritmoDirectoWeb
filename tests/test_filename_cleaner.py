@@ -1,20 +1,5 @@
 import unittest
-import re
-
-class MusicService:
-    @staticmethod
-    def clean_filename(text):
-        # Remove content in parentheses
-        text = re.sub(r'\([^)]*\)', '', text)
-        # Remove content in brackets
-        text = re.sub(r'\[[^]]*\]', '', text)
-        
-        # Remove 'ft.' or 'feat.' and everything after (case insensitive)
-        text = re.sub(r'\s+(ft\.?|feat\.?|featuring).*$', '', text, flags=re.IGNORECASE)
-        
-        # Remove extra spaces
-        text = " ".join(text.split())
-        return text
+from app.services.music_service import MusicService
 
 class TestCleaner(unittest.TestCase):
     def test_clean(self):

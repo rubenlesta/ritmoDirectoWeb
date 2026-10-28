@@ -1,25 +1,29 @@
 #!/bin/bash
+set -euo pipefail
 
-# Activar entorno virtual
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [ ! -f "venv/bin/activate" ]; then
+    echo "Virtual environment not found. Run ./setUp first." >&2
+    exit 1
+fi
+
 source venv/bin/activate
+export PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
-# Añadir directorio actual al PYTHONPATH para que los scripts encuentren el paquete 'app'
-export PYTHONPATH=$PYTHONPATH:.
-
-echo "Starting RitmoDirecto..."
-
-# Start Stats App in background (desde carpeta scripts)
-# Redirigimos logs si se desea
-# python3 scripts/stats_app.py > stats.log 2>&1 &
-# O simplemente:
-python3 scripts/stats_app.py > stats.log 2>&1 &
+python scripts/stats_app.py > stats.log 2>&1 &
 STATS_PID=$!
-echo "Stats App started (PID: $STATS_PID)"
 
-# Start Main App (desde root)
-echo "Starting Main App..."
-python3 run.py
+stop_stats() {
+    if kill -0 "$STATS_PID" 2>/dev/null; then
+        kill "$STATS_PID"
+        wait "$STATS_PID" 2>/dev/null || true
+    fi
+}
 
-# Al salir (Ctrl+C), matar el proceso de stats
-echo "Stopping Stats App..."
-kill $STATS_PID
+trap stop_stats EXIT
+
+echo "Starting RitmoDirecto with ports configured in .env (defaults: 5000 and 5001)."
+echo "Press Ctrl+C to stop both apps."
+python run.py

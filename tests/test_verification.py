@@ -1,27 +1,26 @@
 import unittest
 import os
-import shutil
+import tempfile
 from app import create_app
 from app.models import db, Cancion, Album, AlbumCancion
-from app.config import Config
-from stats_app import app as stats_app
 
 class TestVerification(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
-        self.app.config['TESTING'] = True
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        self.app.config['MP3_FOLDER'] = 'tests/mp3_test'
-        
-        self.stats_client = stats_app.test_client()
-        
-        # Setup test MP3 folder
-        if not os.path.exists(self.app.config['MP3_FOLDER']):
-            os.makedirs(self.app.config['MP3_FOLDER'])
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.mp3_folder = os.path.join(self.temp_dir.name, 'mp3')
+        os.makedirs(self.mp3_folder)
+        database_path = os.path.join(self.temp_dir.name, 'test.db')
+        database_uri = f"sqlite:///{database_path}"
+
+        self.app = create_app(config_overrides={
+            'TESTING': True,
+            'SQLALCHEMY_DATABASE_URI': database_uri,
+            'MP3_FOLDER': self.mp3_folder,
+        })
             
         # Create dummy mp3
-        with open(os.path.join(self.app.config['MP3_FOLDER'], 'test.mp3'), 'w') as f:
-            f.write('dummy content')
+        with open(os.path.join(self.mp3_folder, 'test.mp3'), 'wb') as f:
+            f.write(b'dummy content')
             
         self.client = self.app.test_client()
         
@@ -43,10 +42,11 @@ class TestVerification(unittest.TestCase):
             db.session.commit()
 
     def tearDown(self):
-        if os.path.exists(self.app.config['MP3_FOLDER']):
-            shutil.rmtree(self.app.config['MP3_FOLDER'])
         with self.app.app_context():
+            db.session.remove()
             db.drop_all()
+            db.engine.dispose()
+        self.temp_dir.cleanup()
 
     def test_deletion_from_album(self):
         # Delete from "Test Album"
