@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, send_from_directory, current_app
-from app.services.music_service import MusicService
+from app.services.music_service import MusicDownloadError, MusicService
 from app.config import Config
 from app.models import db, Album
 import os
@@ -35,9 +35,15 @@ def download():
     try:
         result = MusicService.download_song(entry, current_app.config['MP3_FOLDER'])
         return jsonify(result)
+    except MusicDownloadError as e:
+        current_app.logger.warning("Descarga no completada: %s", e)
+        return jsonify({"success": False, "error": str(e)}), e.status_code
     except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"success": False, "error": str(e)})
+        current_app.logger.exception("Error inesperado durante la descarga")
+        return jsonify({
+            "success": False,
+            "error": "Error interno al procesar la descarga.",
+        }), 500
 
 @api_bp.route("/reproducir")
 def play():

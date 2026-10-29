@@ -1,12 +1,102 @@
 import os
 import re
+import shutil
 import yt_dlp
 from mutagen.mp3 import MP3
 from flask import current_app
-from app.config import Config
 from app.models import db, Cancion, Album, AlbumCancion
 
+
+class MusicDownloadError(Exception):
+    status_code = 502
+
+
+class MediaToolsUnavailable(MusicDownloadError):
+    status_code = 503
+
+
 class MusicService:
+    DOWNLOAD_RETRIES = 1
+    DOWNLOAD_ARTIFACT_EXTENSIONS = (
+        ".part", ".webm", ".m4a", ".opus", ".wav", ".mp4", ".mp3",
+    )
+
+    @staticmethod
+    def check_media_tools():
+        missing = [
+            tool for tool in ("ffmpeg", "ffprobe")
+            if shutil.which(tool) is None
+        ]
+        if missing:
+            raise MediaToolsUnavailable(
+                f"No se encontraron {', '.join(missing)} en PATH. "
+                "Instala FFmpeg y FFprobe antes de descargar canciones."
+            )
+
+    @staticmethod
+    def _yt_dlp_options():
+        options = {
+            "quiet": True,
+            "noplaylist": True,
+            "socket_timeout": current_app.config["DOWNLOAD_SOCKET_TIMEOUT"],
+            "js_runtimes": {"node": {}},
+            "retries": MusicService.DOWNLOAD_RETRIES,
+            "fragment_retries": MusicService.DOWNLOAD_RETRIES,
+            "extractor_retries": MusicService.DOWNLOAD_RETRIES,
+        }
+        cookies_path = current_app.config["COOKIES_PATH"]
+        if os.path.isfile(cookies_path):
+            options["cookiefile"] = cookies_path
+        return options
+
+    @staticmethod
+    def _download_error_message(error):
+        detail = str(error)
+        normalized = detail.lower()
+        if any(term in normalized for term in (
+            "403", "forbidden", "sign in to confirm", "bot", "captcha",
+            "challenge",
+        )):
+            return (
+                "YouTube rechazó la petición o requiere una verificación "
+                "anti-bot. Comprueba el acceso y las cookies configuradas."
+            )
+        if any(term in normalized for term in (
+            "signature", "nsig", "unable to extract", "javascript",
+        )):
+            return (
+                "YouTube cambió su mecanismo de extracción. Actualiza yt-dlp "
+                "y vuelve a intentarlo."
+            )
+        if isinstance(error, TimeoutError) or "timed out" in normalized or "timeout" in normalized:
+            return (
+                "La descarga superó el tiempo de espera de red. "
+                "Vuelve a intentarlo."
+            )
+        if any(term in normalized for term in ("ffmpeg", "ffprobe", "postprocess")):
+            return f"Falló la conversión del audio con FFmpeg: {detail[:500]}"
+        return f"yt-dlp no pudo completar la descarga: {detail[:500]}"
+
+    @staticmethod
+    def _cleanup_download_artifacts(output_folder, filename_stem, include_mp3=False):
+        extensions = MusicService.DOWNLOAD_ARTIFACT_EXTENSIONS
+        if not include_mp3:
+            extensions = tuple(ext for ext in extensions if ext != ".mp3")
+
+        for extension in extensions:
+            for suffix in (extension, f"{extension}.part"):
+                artifact = os.path.join(output_folder, filename_stem + suffix)
+                try:
+                    os.remove(artifact)
+                except FileNotFoundError:
+                    pass
+                except OSError as error:
+                    current_app.logger.warning(
+                        "No se pudo limpiar el archivo temporal %s: %s",
+                        artifact,
+                        error,
+                    )
+
     @staticmethod
     def clean_filename(text):
         # Remove content in parentheses
@@ -37,13 +127,9 @@ class MusicService:
     def ensure_home_album():
         home = Album.query.filter_by(nombre="Home").first()
         if not home:
-            try:
-                home = Album(nombre="Home")
-                db.session.add(home)
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
-                home = Album.query.filter_by(nombre="Home").first()
+            home = Album(nombre="Home")
+            db.session.add(home)
+            db.session.commit()
         return home
 
     @staticmethod
@@ -68,26 +154,39 @@ class MusicService:
 
     @staticmethod
     def download_song(entry, output_folder):
+        MusicService.check_media_tools()
         os.makedirs(output_folder, exist_ok=True)
         
-        # 1. Get Info first to clean name
-        ydl_opts_info = {
-            'quiet': True,
-            'cookiefile': current_app.config['COOKIES_PATH'],
-            'noplaylist': True,
-        }
-        
+        ydl_opts_info = MusicService._yt_dlp_options()
         search_query = entry if entry.startswith("http") else f"ytsearch1:{entry}"
         
-        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-            try:
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
                 info = ydl.extract_info(search_query, download=False)
-                if 'entries' in info:
-                    info = info['entries'][0]
-            except Exception as e:
-                raise Exception(f"Error fetching info: {e}")
+                if not info:
+                    raise MusicDownloadError(
+                        "YouTube no devolvió información para la búsqueda."
+                    )
+                if "entries" in info:
+                    entries = info.get("entries") or []
+                    info = entries[0] if entries else None
+                if not info:
+                    raise MusicDownloadError(
+                        "No se encontraron canciones para esa búsqueda."
+                    )
+        except MusicDownloadError:
+            raise
+        except (yt_dlp.utils.YoutubeDLError, TimeoutError, OSError) as error:
+            raise MusicDownloadError(
+                MusicService._download_error_message(error)
+            ) from error
 
         original_title = info.get('title', 'Unknown')
+        webpage_url = info.get("webpage_url")
+        if not webpage_url:
+            raise MusicDownloadError(
+                "YouTube no devolvió una URL válida para la canción."
+            )
         clean_title = MusicService.clean_filename(original_title)
         
         # Split artist - title if present
@@ -98,48 +197,62 @@ class MusicService:
             
         filename = f"{artist} - {title}.mp3"
         filepath = os.path.join(output_folder, filename)
+        filename_stem = filename[:-4]
         
-        # 2. Check if exists (MP3)
         if os.path.exists(filepath):
-            # Ensure it's in DB
             duration = MusicService.get_duration(filepath)
+            if duration == "??:??":
+                raise MusicDownloadError(
+                    "El MP3 ya existente no tiene una duración legible."
+                )
             MusicService.add_song_to_db(filename, artist, title, duration)
+            MusicService._cleanup_download_artifacts(
+                output_folder, filename_stem
+            )
             return {"success": True, "message": "La canción ya existe", "exists": True}
 
-        # 3. Download
-        ydl_opts = {
+        ydl_opts = MusicService._yt_dlp_options()
+        ydl_opts.update({
             'format': 'bestaudio/best',
-            'cookiefile': current_app.config['COOKIES_PATH'],
-            'noplaylist': True,
             'quiet': False,
-            # Force filename to be exactly what we want
             'outtmpl': os.path.join(output_folder, f"{artist} - {title}.%(ext)s"),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            # Ensure we don't keep the video file
             'keepvideo': False,
-        }
+        })
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([info['webpage_url']])
-            
-        # 4. Verify MP3 exists (conversion might have failed or named differently)
-        if not os.path.exists(filepath):
-             # Try to find if it saved as something else and rename/convert?
-             # For now, just warn or try to find partial match?
-             # But with outtmpl it should be close.
-             pass
+        conversion_complete = False
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([webpage_url])
 
-        # 5. Add to DB
-        if os.path.exists(filepath):
+            if not os.path.isfile(filepath):
+                raise MusicDownloadError(
+                    "La descarga terminó, pero no se generó el archivo MP3."
+                )
             duration = MusicService.get_duration(filepath)
+            if duration == "??:??":
+                raise MusicDownloadError(
+                    "Mutagen no pudo leer la duración del MP3 descargado."
+                )
+            conversion_complete = True
             MusicService.add_song_to_db(filename, artist, title, duration)
             return {"success": True, "message": "Descarga completada", "exists": False}
-        else:
-             return {"success": False, "error": "Error en la conversión a MP3"}
+        except MusicDownloadError:
+            raise
+        except (yt_dlp.utils.YoutubeDLError, TimeoutError, OSError) as error:
+            raise MusicDownloadError(
+                MusicService._download_error_message(error)
+            ) from error
+        finally:
+            MusicService._cleanup_download_artifacts(
+                output_folder,
+                filename_stem,
+                include_mp3=not conversion_complete,
+            )
 
     @staticmethod
     def get_songs_by_album(album_name):
@@ -161,26 +274,29 @@ class MusicService:
 
     @staticmethod
     def sync_files():
-        """Scans mp3 folder and adds missing files to DB/Home"""
-        try:
-            home = MusicService.ensure_home_album()
-            mp3_folder = current_app.config['MP3_FOLDER']
-            
-            if not os.path.exists(mp3_folder):
-                print(f"MP3 folder not found: {mp3_folder}")
-                return
+        """Adds available MP3 files to the database and Home album."""
+        mp3_folder = current_app.config["MP3_FOLDER"]
+        if os.path.exists(mp3_folder) and not os.path.isdir(mp3_folder):
+            current_app.logger.warning(
+                "La ruta de MP3 no es un directorio: %s", mp3_folder
+            )
+            return
 
-            for filename in os.listdir(mp3_folder):
-                if filename.endswith(".mp3"):
-                    # Try to parse Artist - Title from filename
-                    name_without_ext = filename[:-4]
-                    if " - " in name_without_ext:
-                        artist, title = name_without_ext.split(" - ", 1)
-                    else:
-                        artist, title = "Desconocido", name_without_ext
-                    
-                    path = os.path.join(mp3_folder, filename)
-                    duration = MusicService.get_duration(path)
-                    MusicService.add_song_to_db(filename, artist, title, duration)
-        except Exception as e:
-            print(f"Error syncing files: {e}")
+        os.makedirs(mp3_folder, exist_ok=True)
+        MusicService.ensure_home_album()
+
+        for filename in os.listdir(mp3_folder):
+            if not filename.lower().endswith(".mp3"):
+                continue
+
+            name_without_ext = filename[:-4]
+            if " - " in name_without_ext:
+                artist, title = name_without_ext.split(" - ", 1)
+            else:
+                artist, title = "Desconocido", name_without_ext
+
+            path = os.path.join(mp3_folder, filename)
+            if not os.path.isfile(path):
+                continue
+            duration = MusicService.get_duration(path)
+            MusicService.add_song_to_db(filename, artist, title, duration)

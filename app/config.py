@@ -15,6 +15,7 @@ class Config:
 
     MP3_FOLDER = os.environ.get('MP3_FOLDER') or os.path.join(BASE_DIR, 'mp3')
     COOKIES_PATH = os.environ.get('COOKIES_PATH') or os.path.join(BASE_DIR, 'cookies.txt')
+    DOWNLOAD_SOCKET_TIMEOUT = int(os.environ.get('DOWNLOAD_SOCKET_TIMEOUT', 30))
     PORT = int(os.environ.get('PORT', 5000))
     STATS_PORT = int(os.environ.get('STATS_PORT', 5001))
     DEBUG = os.environ.get('DEBUG', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
