@@ -7,6 +7,19 @@ main_bp = Blueprint('main', __name__)
 def index():
     return render_template("index.html")
 
+
+@main_bp.route("/sw.js")
+def service_worker():
+    response = send_from_directory(
+        current_app.static_folder,
+        "sw.js",
+        mimetype="application/javascript",
+    )
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @main_bp.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory(current_app.static_folder, filename)

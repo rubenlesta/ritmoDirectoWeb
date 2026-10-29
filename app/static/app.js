@@ -44,6 +44,8 @@ function formatTime(time) {
 window.onload = () => {
     cargarAlbumes();
     cargarCancionesAlbum("Sin clasificar");
+    setupMediaSession();
+    registerServiceWorker();
 
     // MP3 Upload Handler
     const mp3Input = document.getElementById('mp3UploadInput');
@@ -70,6 +72,93 @@ function hideLoading() {
             bar.style.width = '0%';
         }, 300);
     }
+}
+
+function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+
+    navigator.serviceWorker.register("/sw.js", { scope: "/" })
+        .catch(error => console.error("No se pudo registrar el Service Worker:", error));
+}
+
+function setupMediaSession() {
+    if (!("mediaSession" in navigator)) return;
+
+    const audioPlayer = document.getElementById("audioPlayer");
+    const actions = {
+        play: () => audioPlayer.play(),
+        pause: () => audioPlayer.pause(),
+        previoustrack: () => reiniciarCancion(),
+        nexttrack: () => reproducirSiguienteCancion(),
+        seekbackward: details => {
+            audioPlayer.currentTime = Math.max(
+                0,
+                audioPlayer.currentTime - (details.seekOffset || 10)
+            );
+        },
+        seekforward: details => {
+            audioPlayer.currentTime = Math.min(
+                audioPlayer.duration || Infinity,
+                audioPlayer.currentTime + (details.seekOffset || 10)
+            );
+        },
+        seekto: details => {
+            if (Number.isFinite(details.seekTime)) {
+                audioPlayer.currentTime = details.seekTime;
+            }
+        }
+    };
+
+    Object.entries(actions).forEach(([action, handler]) => {
+        try {
+            navigator.mediaSession.setActionHandler(action, handler);
+        } catch (error) {
+            console.debug(`Media Session no admite la acción ${action}:`, error);
+        }
+    });
+
+    audioPlayer.addEventListener("play", updateMediaPlaybackState);
+    audioPlayer.addEventListener("pause", updateMediaPlaybackState);
+    audioPlayer.addEventListener("ended", updateMediaPlaybackState);
+    audioPlayer.addEventListener("timeupdate", updateMediaSessionPosition);
+}
+
+function updateMediaSessionMetadata(song) {
+    if (!("mediaSession" in navigator) || !window.MediaMetadata || !song) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.titulo || "Ritmo Directo",
+        artist: song.artista || "Desconocido",
+        album: albumActual || "Ritmo Directo",
+        artwork: [
+            {
+                src: new URL("/static/icons/icon-512.png", window.location.origin).href,
+                sizes: "512x512",
+                type: "image/png"
+            }
+        ]
+    });
+}
+
+function updateMediaPlaybackState() {
+    if (!("mediaSession" in navigator)) return;
+    const audioPlayer = document.getElementById("audioPlayer");
+    navigator.mediaSession.playbackState = audioPlayer.paused ? "paused" : "playing";
+    const playIcon = document.getElementById("playIcon");
+    playIcon.classList.toggle("fa-play", audioPlayer.paused);
+    playIcon.classList.toggle("fa-pause", !audioPlayer.paused);
+}
+
+function updateMediaSessionPosition() {
+    if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+    const audioPlayer = document.getElementById("audioPlayer");
+    if (!Number.isFinite(audioPlayer.duration) || audioPlayer.duration <= 0) return;
+
+    navigator.mediaSession.setPositionState({
+        duration: audioPlayer.duration,
+        playbackRate: audioPlayer.playbackRate,
+        position: Math.min(audioPlayer.currentTime, audioPlayer.duration)
+    });
 }
 
 // --- MP3 Upload ---
@@ -236,6 +325,7 @@ function seleccionarCancion(row, cancion, index) {
     row.classList.add('selected');
     cancionSeleccionada = cancion;
     indiceActual = index;
+    updateMediaSessionMetadata(cancion);
 
     // Update player info immediately
     document.getElementById("cancionActual").textContent = cancion.titulo;
@@ -266,6 +356,7 @@ function reproducirCancion() {
     audioPlayer.play().then(() => {
         playIcon.classList.remove("fa-play");
         playIcon.classList.add("fa-pause");
+        updateMediaPlaybackState();
     }).catch(e => console.warn("Autoplay blocked or error", e));
 
     audioPlayer.ontimeupdate = updateProgress;
@@ -291,6 +382,41 @@ function togglePlayPause() {
     }
 }
 
+function toggleMute() {
+    const audioPlayer = document.getElementById("audioPlayer");
+    audioPlayer.muted = !audioPlayer.muted;
+    updateVolumeControl();
+}
+
+function setVolume(value) {
+    const audioPlayer = document.getElementById("audioPlayer");
+    audioPlayer.volume = Number(value);
+    audioPlayer.muted = audioPlayer.volume === 0;
+    updateVolumeControl();
+}
+
+function updateVolumeControl() {
+    const audioPlayer = document.getElementById("audioPlayer");
+    const toggle = document.getElementById("volumeToggle");
+    const slider = document.getElementById("volumeSlider");
+    if (!toggle || !slider) return;
+
+    const muted = audioPlayer.muted || audioPlayer.volume === 0;
+    const icon = toggle.querySelector("i");
+    icon.className = `fa-solid ${muted ? "fa-volume-xmark" : "fa-volume-high"}`;
+    toggle.title = muted ? "Activar sonido" : "Silenciar";
+    toggle.setAttribute("aria-label", toggle.title);
+    slider.value = muted ? 0 : audioPlayer.volume;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const audioPlayer = document.getElementById("audioPlayer");
+    const volumeSlider = document.getElementById("volumeSlider");
+    if (!audioPlayer || !volumeSlider) return;
+    audioPlayer.volume = Number(volumeSlider.value);
+    updateVolumeControl();
+});
+
 function updateProgress() {
     const audioPlayer = document.getElementById("audioPlayer");
     const current = audioPlayer.currentTime;
@@ -308,7 +434,8 @@ function seek(event) {
     if (!audioPlayer.duration) return;
 
     const wrapper = event.currentTarget;
-    const clickX = event.offsetX;
+    const bounds = wrapper.getBoundingClientRect();
+    const clickX = Math.max(0, Math.min(event.clientX - bounds.left, bounds.width));
     const width = wrapper.clientWidth;
     const percent = clickX / width;
 
@@ -346,6 +473,7 @@ function reproducirSiguienteCancion() {
         // Update UI info manually since it might not be in the list
         document.getElementById("cancionActual").textContent = next.titulo;
         document.getElementById("artistaActual").textContent = next.artista;
+        updateMediaSessionMetadata(next);
         reproducirCancion();
         return;
     }

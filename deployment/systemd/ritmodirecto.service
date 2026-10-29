@@ -1,0 +1,19 @@
+[Unit]
+Description=RitmoDirectoWeb Flask application
+After=network.target
+
+[Service]
+Type=simple
+User=ritmodirecto
+Group=ritmodirecto
+WorkingDirectory=/opt/ritmodirecto
+EnvironmentFile=/opt/ritmodirecto/.env
+ExecStart=/opt/ritmodirecto/venv/bin/gunicorn --workers 2 --timeout 1800 --bind 127.0.0.1:${PORT} --access-logfile - --error-logfile - run:app
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

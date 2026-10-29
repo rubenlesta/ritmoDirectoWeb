@@ -574,3 +574,298 @@ tbody tr.selected-batch {
     overflow-y: auto;
 }
 .menu-item:hover .submenu { display: block; }
+
+/* Keyboard and touch targets */
+button,
+.album-item,
+.progress-bar-wrapper,
+.checkbox-wrapper-custom {
+    touch-action: manipulation;
+}
+
+.btn-control,
+.action-btn-small,
+.action-btn-danger,
+.btn-primary,
+.btn-upload,
+.btn-text {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.progress-bar-wrapper {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+.volume-control {
+    width: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.volume-control input {
+    width: 110px;
+    accent-color: var(--primary-color);
+}
+
+@media (max-width: 800px) {
+    :root {
+        --player-height: calc(132px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body {
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .app-container {
+        height: calc(100vh - var(--player-height));
+        height: calc(100dvh - var(--player-height));
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        flex: 0 0 auto;
+        padding: 10px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo,
+    .sidebar-section h3 {
+        display: none;
+    }
+
+    .sidebar-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .album-list {
+        flex-direction: row;
+        gap: 6px;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .album-item {
+        width: auto;
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 10px 12px;
+        border-left: 0;
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+    }
+
+    .album-item.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--primary-color);
+    }
+
+    .btn-text {
+        flex: 0 0 auto;
+        margin-top: 0;
+        padding: 8px;
+        font-size: 0;
+    }
+
+    .btn-text i {
+        font-size: 1rem;
+    }
+
+    .content {
+        min-height: 0;
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .search-bar {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .actions {
+        width: 100%;
+        gap: 8px;
+    }
+
+    .download-group {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .download-group input {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+    }
+
+    .btn-upload {
+        padding: 8px;
+        font-size: 0;
+        flex: 0 0 48px;
+    }
+
+    .btn-upload i {
+        font-size: 1rem;
+    }
+
+    .player-bar {
+        height: var(--player-height);
+        padding: 8px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: 1fr 1fr;
+        column-gap: 8px;
+    }
+
+    .now-playing {
+        width: auto;
+        min-width: 0;
+        grid-column: 1;
+        grid-row: 1;
+        align-self: end;
+        padding-bottom: 4px;
+    }
+
+    .track-title,
+    .track-artist {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .track-title {
+        margin-bottom: 2px;
+    }
+
+    .player-controls-container {
+        width: 100%;
+        max-width: none;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        gap: 0;
+    }
+
+    .controls {
+        width: 100%;
+        justify-content: center;
+        gap: clamp(8px, 4vw, 24px);
+    }
+
+    .btn-control {
+        width: 44px;
+        height: 44px;
+        font-size: 1rem;
+    }
+
+    .btn-control.play-btn {
+        width: 48px;
+        height: 48px;
+    }
+
+    .progress-area {
+        position: absolute;
+        top: 2px;
+        left: 14px;
+        right: 14px;
+        height: 18px;
+        gap: 8px;
+        font-size: 0.65rem;
+    }
+
+    .progress-bar-wrapper {
+        min-height: 24px;
+        padding: 10px 0;
+    }
+
+    .volume-control {
+        width: auto;
+        grid-column: 2;
+        grid-row: 1;
+        align-self: end;
+        padding-bottom: 4px;
+    }
+
+    .volume-control input {
+        display: none;
+    }
+
+    .batch-toolbar {
+        bottom: var(--player-height);
+        max-width: calc(100vw - 24px);
+    }
+}
+
+@media (max-width: 520px) {
+    .content {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .song-list-container {
+        min-height: 0;
+    }
+
+    table {
+        table-layout: fixed;
+    }
+
+    th,
+    td {
+        padding: 11px 8px;
+        font-size: 0.8rem;
+    }
+
+    #cancionesLista th:nth-child(1),
+    #cancionesLista td:nth-child(1),
+    #cancionesLista th:nth-child(2),
+    #cancionesLista td:nth-child(2),
+    #cancionesLista th:nth-child(5),
+    #cancionesLista td:nth-child(5) {
+        display: none;
+    }
+
+    #cancionesLista th:nth-child(3),
+    #cancionesLista td:nth-child(3) {
+        width: 48%;
+    }
+
+    #cancionesLista th:nth-child(4),
+    #cancionesLista td:nth-child(4) {
+        width: 30%;
+    }
+
+    #cancionesLista th:nth-child(6),
+    #cancionesLista td:nth-child(6) {
+        width: 22%;
+        white-space: nowrap;
+    }
+
+    .action-btn-small {
+        min-width: 44px;
+        min-height: 44px;
+        margin-right: 0;
+    }
+
+    .player-bar {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=RitmoDirectoWeb statistics application
+After=network.target
+
+[Service]
+Type=simple
+User=ritmodirecto
+Group=ritmodirecto
+WorkingDirectory=/opt/ritmodirecto
+EnvironmentFile=/opt/ritmodirecto/.env
+ExecStart=/opt/ritmodirecto/venv/bin/gunicorn --workers 2 --timeout 120 --bind 127.0.0.1:${STATS_PORT} --access-logfile - --error-logfile - scripts.stats_app:app
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
