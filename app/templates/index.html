@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#D4AF37">
+    <meta name="theme-color" content="#121212">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Ritmo Directo">
@@ -69,17 +69,18 @@
                 <table id="cancionesLista">
                     <thead>
                         <tr>
-                            <th width="5%">
+                            <th class="selection-column">
                                 <label class="checkbox-wrapper-custom">
                                     <input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)">
                                     <span class="custom-checkmark"></span>
                                 </label>
                             </th>
-                            <th width="5%">#</th>
-                            <th width="40%">Título</th>
-                            <th width="30%">Artista</th>
-                            <th width="10%"><i class="fa-regular fa-clock"></i></th>
-                            <th width="10%"></th>
+                            <th class="number-column">#</th>
+                            <th class="track-column">Canción</th>
+                            <th class="duration-column" aria-label="Duración">
+                                <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                            </th>
+                            <th class="actions-column"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -93,36 +94,92 @@
             </div>
         </main>
 
-        <!-- Queue Sidebar -->
-        <aside class="queue-sidebar" id="queueSidebar">
-            <div class="queue-header">
-                <h3>Cola</h3>
-                <button class="action-btn-small" onclick="toggleQueue()">
-                    <i class="fa-solid fa-times"></i>
+    </div>
+
+    <button class="queue-backdrop" id="queueBackdrop" type="button"
+        aria-label="Cerrar cola"></button>
+    <aside class="queue-sidebar" id="queueSidebar" aria-hidden="true">
+        <div class="queue-header">
+            <h3>Cola de reproducción</h3>
+            <button class="action-btn-small" id="queueCloseButton" type="button"
+                title="Cerrar cola" aria-label="Cerrar cola">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <section class="queue-section">
+            <div class="queue-section-heading">
+                <h4>En cola</h4>
+                <button id="clearQueueButton" class="queue-clear" type="button" onclick="clearQueue()">
+                    Vaciar
                 </button>
             </div>
-            <div id="queueList" class="queue-list">
-                <div class="empty-queue">Cola vacía</div>
+            <div id="queueList" class="queue-list"></div>
+        </section>
+        <section class="queue-section upcoming-section">
+            <div class="queue-section-heading">
+                <h4>A continuación</h4>
+                <span id="queueModeLabel"></span>
             </div>
-        </aside>
-    </div>
+            <div id="upcomingList" class="queue-list"></div>
+        </section>
+    </aside>
 
     <!-- Context Menu -->
     <div id="contextMenu" class="context-menu" style="display: none;">
-        <div class="menu-item" id="ctxDelete">
-            <i class="fa-solid fa-trash"></i> Borrar canción
-        </div>
-        <div class="menu-item has-submenu">
+        <button class="menu-item" id="ctxAddQueue" type="button">
+            <i class="fa-solid fa-list-ol"></i> Añadir a la cola
+        </button>
+        <button class="menu-item" id="ctxAddAlbum" type="button">
             <i class="fa-solid fa-folder-plus"></i> Añadir a álbum
-            <div class="submenu" id="albumSubmenu">
-                <!-- Albums loaded dynamically -->
-            </div>
-        </div>
+        </button>
+        <button class="menu-item" id="ctxDelete" type="button">
+            <i class="fa-solid fa-trash"></i> Borrar canción
+        </button>
     </div>
+
+    <div class="album-dialog-backdrop" id="albumDialogBackdrop" aria-hidden="true">
+        <section class="album-dialog" role="dialog" aria-modal="true"
+            aria-labelledby="albumDialogTitle">
+            <div class="album-dialog-header">
+                <h3 id="albumDialogTitle">Añadir a álbum</h3>
+                <button type="button" class="action-btn-small" onclick="closeAlbumDialog()"
+                    aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <label for="albumSelect">Álbum existente</label>
+            <select id="albumSelect"></select>
+            <button type="button" id="showCreateAlbum" class="btn-text">
+                <i class="fa-solid fa-plus"></i> Crear nuevo álbum
+            </button>
+            <div id="createAlbumFields" class="create-album-fields" hidden>
+                <label for="newAlbumName">Nombre del nuevo álbum</label>
+                <input id="newAlbumName" type="text" maxlength="255" autocomplete="off">
+            </div>
+            <div class="album-dialog-actions">
+                <button type="button" class="btn-text" onclick="closeAlbumDialog()">Cancelar</button>
+                <button type="button" class="btn-primary" id="confirmAlbumAdd">Añadir</button>
+            </div>
+        </section>
+    </div>
+
+    <section class="download-progress" id="downloadProgress" aria-live="polite" hidden>
+        <div class="download-progress-heading">
+            <strong id="downloadProgressMessage">Obteniendo información...</strong>
+            <span id="downloadProgressPercent">0%</span>
+        </div>
+        <div class="download-progress-track" role="progressbar"
+            aria-label="Progreso de descarga" aria-valuemin="0"
+            aria-valuemax="100" aria-valuenow="0">
+            <div class="download-progress-fill" id="downloadProgressFill"></div>
+        </div>
+        <span class="download-progress-speed" id="downloadProgressSpeed"></span>
+    </section>
 
     <!-- Player Bar -->
     <footer class="player-bar">
         <div class="now-playing">
+            <div class="track-art" aria-hidden="true">
+                <i class="fa-solid fa-music"></i>
+            </div>
             <div class="track-info">
                 <div class="track-title" id="cancionActual">Selecciona una canción</div>
                 <div class="track-artist" id="artistaActual">-</div>
@@ -131,7 +188,8 @@
 
         <div class="player-controls-container">
             <div class="controls">
-                <button class="btn-control" onclick="cambiarModo()" id="modoReproduccion" title="Aleatorio">
+                <button class="btn-control active" onclick="cambiarModo()" id="modoReproduccion"
+                    title="Aleatorio" aria-label="Desactivar modo aleatorio" aria-pressed="true">
                     <i class="fa-solid fa-shuffle"></i>
                 </button>
                 <button class="btn-control" onclick="reiniciarCancion()">
@@ -143,25 +201,35 @@
                 <button class="btn-control" onclick="reproducirSiguienteCancion()">
                     <i class="fa-solid fa-forward-step"></i>
                 </button>
-                <button class="btn-control" onclick="mostrarCola()">
-                    <i class="fa-solid fa-list-ol"></i>
+                <button class="btn-control" id="repeatToggle" type="button"
+                    onclick="toggleRepeatMode()" title="Repetir desactivado"
+                    aria-label="Activar repetición" aria-pressed="false">
+                    <i class="fa-solid fa-repeat"></i>
                 </button>
             </div>
             <div class="progress-area">
                 <span id="currentTime">0:00</span>
-                <div class="progress-bar-wrapper" onclick="seek(event)">
+                <div class="progress-bar-wrapper" role="slider" tabindex="0"
+                    aria-label="Progreso de reproducción" aria-valuemin="0"
+                    aria-valuemax="100" aria-valuenow="0" onclick="seek(event)">
                     <div class="progress-fill" id="progress"></div>
                 </div>
                 <span id="duration">0:00</span>
             </div>
         </div>
 
-        <div class="volume-control">
-            <button class="btn-control" id="volumeToggle" type="button" onclick="toggleMute()" title="Silenciar" aria-label="Silenciar">
-                <i class="fa-solid fa-volume-high"></i>
+        <div class="player-utilities">
+            <button class="btn-control" id="queueToggle" type="button"
+                title="Mostrar cola" aria-label="Mostrar cola" aria-expanded="false">
+                <i class="fa-solid fa-list-ol"></i>
             </button>
-            <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1"
-                aria-label="Volumen" title="Volumen" oninput="setVolume(this.value)">
+            <div class="volume-control">
+                <button class="btn-control" id="volumeToggle" type="button" onclick="toggleMute()" title="Silenciar" aria-label="Silenciar">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1"
+                    aria-label="Volumen" title="Volumen" oninput="setVolume(this.value)">
+            </div>
         </div>
     </footer>
 

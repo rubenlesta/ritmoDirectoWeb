@@ -1,4 +1,4 @@
-const CACHE_NAME = "ritmo-directo-v1";
+const CACHE_NAME = "ritmo-directo-v3";
 const APP_SHELL = [
     "/",
     "/static/styles.css",
@@ -56,16 +56,19 @@ self.addEventListener("fetch", event => {
 
     if (url.pathname.startsWith("/static/")) {
         event.respondWith(
-            caches.match(request).then(cached => {
-                if (cached) return cached;
-                return fetch(request).then(response => {
+            fetch(request, { cache: "no-cache" })
+                .then(response => {
                     if (response.ok) {
                         const copy = response.clone();
                         caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
                     }
                     return response;
-                });
-            })
+                })
+                .catch(async () => {
+                    const cached = await caches.match(request);
+                    if (cached) return cached;
+                    throw new Error(`No hay una copia disponible para ${url.pathname}`);
+                })
         );
     }
 });

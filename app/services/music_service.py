@@ -153,10 +153,45 @@ class MusicService:
         return cancion
 
     @staticmethod
-    def download_song(entry, output_folder):
+    def download_song(entry, output_folder, progress_callback=None):
         MusicService.check_media_tools()
         os.makedirs(output_folder, exist_ok=True)
         
+        def report_progress(phase, **details):
+            if progress_callback:
+                progress_callback({"phase": phase, **details})
+
+        def download_progress(data):
+            if data.get("status") == "finished":
+                report_progress(
+                    "converting",
+                    message="Preparando conversión a MP3...",
+                    percent=100,
+                )
+                return
+
+            total = data.get("total_bytes") or data.get("total_bytes_estimate")
+            downloaded = data.get("downloaded_bytes", 0)
+            percent = downloaded * 100 / total if total else None
+            report_progress(
+                "downloading",
+                message="Descargando audio...",
+                percent=percent,
+                speed=data.get("speed"),
+            )
+
+        def postprocessor_progress(data):
+            report_progress(
+                "converting",
+                message=(
+                    "Convirtiendo a MP3..."
+                    if data.get("status") == "started"
+                    else "Finalizando conversión..."
+                ),
+                percent=100,
+            )
+
+        report_progress("fetching", message="Obteniendo información...")
         ydl_opts_info = MusicService._yt_dlp_options()
         search_query = entry if entry.startswith("http") else f"ytsearch1:{entry}"
         
@@ -216,6 +251,8 @@ class MusicService:
             'format': 'bestaudio/best',
             'quiet': False,
             'outtmpl': os.path.join(output_folder, f"{artist} - {title}.%(ext)s"),
+            'progress_hooks': [download_progress],
+            'postprocessor_hooks': [postprocessor_progress],
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -240,6 +277,13 @@ class MusicService:
                 )
             conversion_complete = True
             MusicService.add_song_to_db(filename, artist, title, duration)
+            report_progress(
+                "completed",
+                message="Finalizado",
+                percent=100,
+                filename=filename,
+                duration=duration,
+            )
             return {"success": True, "message": "Descarga completada", "exists": False}
         except MusicDownloadError:
             raise

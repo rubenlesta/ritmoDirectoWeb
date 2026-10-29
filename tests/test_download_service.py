@@ -41,6 +41,7 @@ class TestDownloadService(unittest.TestCase):
 
     def test_simulated_search_download_converts_and_registers_song(self):
         service = self
+        progress_events = []
 
         class FakeYoutubeDL:
             instances = []
@@ -67,6 +68,15 @@ class TestDownloadService(unittest.TestCase):
                 service.assertEqual(
                     urls, ["https://youtube.example/watch?v=test"]
                 )
+                service.assertEqual(len(self.options["progress_hooks"]), 1)
+                self.options["progress_hooks"][0]({
+                    "status": "downloading",
+                    "downloaded_bytes": 2048,
+                    "total_bytes": 4096,
+                    "speed": 1024,
+                })
+                self.options["progress_hooks"][0]({"status": "finished"})
+                self.options["postprocessor_hooks"][0]({"status": "started"})
                 output_path = self.options["outtmpl"].replace("%(ext)s", "mp3")
                 subprocess.run([
                     "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
@@ -78,7 +88,9 @@ class TestDownloadService(unittest.TestCase):
             "app.services.music_service.yt_dlp.YoutubeDL", FakeYoutubeDL
         ):
             result = MusicService.download_song(
-                "Test Artist - Test Song", self.mp3_folder
+                "Test Artist - Test Song",
+                self.mp3_folder,
+                progress_callback=progress_events.append,
             )
             filename = "Test Artist - Test Song.mp3"
             filepath = os.path.join(self.mp3_folder, filename)
@@ -102,6 +114,13 @@ class TestDownloadService(unittest.TestCase):
                 AlbumCancion.query.filter_by(
                     album_id=home.id, cancion_id=song.id
                 ).first()
+            )
+            self.assertIn("fetching", [event["phase"] for event in progress_events])
+            self.assertIn("downloading", [event["phase"] for event in progress_events])
+            self.assertIn("converting", [event["phase"] for event in progress_events])
+            self.assertEqual(progress_events[-1]["phase"], "completed")
+            self.assertEqual(
+                progress_events[1]["percent"], 50
             )
 
     def test_youtube_error_is_clear_and_partial_files_are_removed(self):

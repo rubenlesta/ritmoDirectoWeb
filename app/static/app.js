@@ -5,7 +5,10 @@ let modoAleatorio = true;
 let albumActual = "";
 
 let colaReproduccion = [];
+let cancionesSiguientes = [];
 let currentContextSong = null;
+let cancionesPendientesAlbum = [];
+let descargaActiva = false;
 
 document.addEventListener('click', (e) => {
     const menu = document.getElementById('contextMenu');
@@ -223,7 +226,9 @@ function renderAlbumList(albums) {
     albums.forEach(album => {
         const btn = document.createElement("button");
         btn.className = `album-item ${album === albumActual ? 'active' : ''}`;
-        btn.innerHTML = `<i class="fa-solid fa-folder"></i> ${album}`;
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-folder";
+        btn.append(icon, document.createTextNode(` ${album}`));
         btn.onclick = () => cargarCancionesAlbum(album);
         lista.appendChild(btn);
     });
@@ -246,6 +251,10 @@ function crearAlbum() {
             } else {
                 showToast(data.error, 'error');
             }
+        })
+        .catch(error => {
+            console.error("Error creating album:", error);
+            showToast("No se pudo crear el álbum", "error");
         });
 }
 
@@ -263,6 +272,7 @@ function cargarCancionesAlbum(album) {
         .then(data => {
             cancionesAlbum = data.canciones || [];
             indiceActual = 0;
+            prepararSiguientes();
             renderSongs();
             cancionSeleccionada = null;
         })
@@ -292,6 +302,7 @@ function renderSongs() {
 
     cancionesAlbum.forEach((cancion, index) => {
         const row = document.createElement("tr");
+        row.classList.add("song-row");
         const isSelected = selectedSongs.has(cancion.filename);
         if (isSelected) row.classList.add('selected-batch');
 
@@ -303,10 +314,19 @@ function renderSongs() {
                 </label>
             </td>
             <td>${index + 1}</td>
-            <td>${cancion.titulo}</td>
-            <td>${cancion.artista || 'Desconocido'}</td>
-            <td>${cancion.duracion}</td>
-            <td>
+            <td class="track-cell">
+                <div class="song-info">
+                    <span class="song-art" aria-hidden="true">
+                        <i class="fa-solid fa-music"></i>
+                    </span>
+                    <span class="song-text">
+                        <span class="song-title">${cancion.titulo}</span>
+                        <span class="song-artist">${cancion.artista || 'Desconocido'}</span>
+                    </span>
+                </div>
+            </td>
+            <td class="duration-cell">${cancion.duracion}</td>
+            <td class="song-actions">
                 <button class="action-btn-small" onclick="event.stopPropagation(); agregarColaDirecto(${index})" title="Agregar a cola">
                     <i class="fa-solid fa-plus"></i>
                 </button>
@@ -325,6 +345,8 @@ function seleccionarCancion(row, cancion, index) {
     row.classList.add('selected');
     cancionSeleccionada = cancion;
     indiceActual = index;
+    prepararSiguientes();
+    renderQueue();
     updateMediaSessionMetadata(cancion);
 
     // Update player info immediately
@@ -427,6 +449,8 @@ function updateProgress() {
 
     const percent = duration ? (current / duration) * 100 : 0;
     document.getElementById("progress").style.width = percent + "%";
+    document.querySelector(".progress-bar-wrapper")
+        ?.setAttribute("aria-valuenow", String(Math.round(percent)));
 }
 
 function seek(event) {
@@ -452,34 +476,66 @@ function onSongEnd() {
         }).catch(e => console.error("Error recording play:", e));
     }
 
-    if (modoAleatorio) {
-        // Simple random logic
-        if (cancionesAlbum.length > 0) {
-            let nextIndex = Math.floor(Math.random() * cancionesAlbum.length);
-            seleccionarCancionByIndex(nextIndex);
-        }
-    } else {
-        reproducirSiguienteCancion();
-    }
+    reproducirSiguienteCancion();
 }
 
 function reproducirSiguienteCancion() {
     if (colaReproduccion.length > 0) {
         const next = colaReproduccion.shift();
         renderQueue();
-        // Find index in current list if possible, otherwise just play
-        // For simplicity, we just play it and don't highlight if not in list
-        cancionSeleccionada = next;
-        // Update UI info manually since it might not be in the list
-        document.getElementById("cancionActual").textContent = next.titulo;
-        document.getElementById("artistaActual").textContent = next.artista;
-        updateMediaSessionMetadata(next);
-        reproducirCancion();
+        reproducirCancionDeCola(next, true);
         return;
     }
 
-    let nextIndex = (indiceActual + 1) % cancionesAlbum.length;
-    seleccionarCancionByIndex(nextIndex);
+    const next = cancionesSiguientes.shift();
+    if (!next) return;
+    const nextIndex = cancionesAlbum.findIndex(
+        song => song.filename === next.filename
+    );
+    if (nextIndex !== -1) {
+        seleccionarCancionByIndex(nextIndex);
+    } else {
+        reproducirCancionDeCola(next, false);
+    }
+}
+
+function reproducirCancionDeCola(song, isPriority) {
+    cancionSeleccionada = song;
+    const songIndex = cancionesAlbum.findIndex(
+        item => item.filename === song.filename
+    );
+    if (!isPriority && songIndex >= 0) {
+        indiceActual = songIndex;
+        prepararSiguientes();
+    }
+    document.getElementById("cancionActual").textContent = song.titulo;
+    document.getElementById("artistaActual").textContent = song.artista || "Desconocido";
+    updateMediaSessionMetadata(song);
+    reproducirCancion();
+    renderQueue();
+}
+
+function prepararSiguientes() {
+    if (indiceActual < 0 || !cancionesAlbum.length) {
+        cancionesSiguientes = [];
+        return;
+    }
+
+    const restantes = cancionesAlbum.filter((_, index) => index !== indiceActual);
+    if (modoAleatorio) {
+        for (let index = restantes.length - 1; index > 0; index--) {
+            const swapIndex = Math.floor(Math.random() * (index + 1));
+            [restantes[index], restantes[swapIndex]] =
+                [restantes[swapIndex], restantes[index]];
+        }
+        cancionesSiguientes = restantes;
+        return;
+    }
+
+    cancionesSiguientes = [
+        ...cancionesAlbum.slice(indiceActual + 1),
+        ...cancionesAlbum.slice(0, indiceActual)
+    ];
 }
 
 function seleccionarCancionByIndex(index) {
@@ -497,44 +553,133 @@ function cambiarModo() {
     modoAleatorio = !modoAleatorio;
     const btn = document.getElementById("modoReproduccion");
     btn.classList.toggle('active', modoAleatorio);
+    btn.setAttribute("aria-pressed", String(modoAleatorio));
+    btn.setAttribute(
+        "aria-label",
+        modoAleatorio ? "Desactivar modo aleatorio" : "Activar modo aleatorio"
+    );
+    prepararSiguientes();
+    renderQueue();
     showToast(modoAleatorio ? "Modo Aleatorio Activado" : "Modo Secuencial Activado");
 }
 
-// --- Actions ---
-function descargar() {
-    const entrada = document.getElementById("urlInput").value.trim();
+function toggleRepeatMode() {
+    const audioPlayer = document.getElementById("audioPlayer");
+    const button = document.getElementById("repeatToggle");
+    audioPlayer.loop = !audioPlayer.loop;
+    button.classList.toggle("active", audioPlayer.loop);
+    button.setAttribute("aria-pressed", String(audioPlayer.loop));
+    button.setAttribute(
+        "aria-label",
+        audioPlayer.loop ? "Desactivar repetición" : "Activar repetición"
+    );
+    button.title = audioPlayer.loop ? "Repetir activado" : "Repetir desactivado";
+}
 
+// --- Download progress ---
+function setDownloadProgress(task) {
+    const panel = document.getElementById("downloadProgress");
+    const message = document.getElementById("downloadProgressMessage");
+    const percentLabel = document.getElementById("downloadProgressPercent");
+    const fill = document.getElementById("downloadProgressFill");
+    const speedLabel = document.getElementById("downloadProgressSpeed");
+    const progressTrack = document.querySelector(".download-progress-track");
+    const percent = Number.isFinite(Number(task.percent))
+        ? Math.max(0, Math.min(100, Number(task.percent)))
+        : null;
+
+    panel.hidden = false;
+    panel.classList.toggle("failed", task.state === "failed");
+    panel.classList.toggle("indeterminate", percent === null && task.state === "running");
+    message.textContent = task.message || "Procesando descarga...";
+    percentLabel.textContent = percent === null ? "" : `${Math.round(percent)}%`;
+    fill.style.width = percent === null ? "0%" : `${percent}%`;
+    progressTrack.setAttribute(
+        "aria-valuenow", percent === null ? "0" : String(Math.round(percent))
+    );
+    speedLabel.textContent = task.speed
+        ? `${(task.speed / 1024 / 1024).toFixed(2)} MB/s`
+        : "";
+}
+
+const delay = milliseconds =>
+    new Promise(resolve => window.setTimeout(resolve, milliseconds));
+
+async function pollDownload(taskId) {
+    while (true) {
+        const response = await fetch(
+            `/api/download_status/${encodeURIComponent(taskId)}`
+        );
+        const task = await response.json();
+        if (!response.ok) {
+            throw new Error(task.error || "No se pudo consultar la descarga");
+        }
+
+        setDownloadProgress(task);
+        if (task.state === "completed") {
+            showToast(task.result?.message || "Descarga finalizada");
+            cargarAlbumes();
+            cargarCancionesAlbum("Home");
+            await delay(3500);
+            document.getElementById("downloadProgress").hidden = true;
+            return;
+        }
+        if (task.state === "failed") {
+            throw new Error(task.error || "La descarga no se pudo completar");
+        }
+        await delay(700);
+    }
+}
+
+async function descargar() {
+    const input = document.getElementById("urlInput");
+    const button = document.querySelector(".download-group .btn-primary");
+    const entrada = input.value.trim();
+
+    if (descargaActiva) return;
     if (!entrada) {
-        showToast("Introduce una URL", "error");
+        showToast("Introduce una URL o búsqueda", "error");
         return;
     }
 
-    showToast("Iniciando descarga...", "info");
-    fetch(`/descargar?entrada=${encodeURIComponent(entrada)}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                if (data.exists) {
-                    showToast(data.message, "info"); // Yellow/Info for existing
-                } else {
-                    showToast(data.message, "success");
-                }
-                cargarCancionesAlbum("Home"); // Always refresh Home/Current
-            } else {
-                showToast(data.error || "Error en la descarga", "error");
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            showToast("Error de red", "error");
+    descargaActiva = true;
+    button.disabled = true;
+    setDownloadProgress({
+        state: "running",
+        phase: "fetching",
+        message: "Obteniendo información...",
+        percent: null
+    });
+
+    try {
+        const response = await fetch("/api/downloads", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ entrada })
         });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || "No se pudo iniciar la descarga");
+        }
+        input.value = "";
+        await pollDownload(result.task_id);
+    } catch (error) {
+        console.error("Download failed:", error);
+        setDownloadProgress({
+            state: "failed",
+            message: error.message || "Error de red",
+            percent: null
+        });
+        showToast(error.message || "Error de red durante la descarga", "error");
+    } finally {
+        descargaActiva = false;
+        button.disabled = false;
+    }
 }
 
 function eliminarCancion(nombreCancion) {
     if (!confirm(`¿Eliminar ${nombreCancion}?`)) return;
 
-    // Backend expects filename now
-    // Pass albumActual to handle conditional deletion
     fetch(`/eliminar?cancion=${encodeURIComponent(nombreCancion)}&album=${encodeURIComponent(albumActual)}`)
         .then(res => res.json())
         .then(data => {
@@ -549,38 +694,113 @@ function eliminarCancion(nombreCancion) {
 
 function agregarColaDirecto(index) {
     const cancion = cancionesAlbum[index];
+    if (!cancion) return;
     colaReproduccion.push(cancion);
-    showToast(`Agregada a la cola: ${cancion.titulo}`);
+    showToast(`Añadida a la cola: ${cancion.titulo}`);
     renderQueue();
 }
 
 function toggleQueue() {
-    const sidebar = document.getElementById('queueSidebar');
-    sidebar.classList.toggle('open');
+    const isOpen = document.getElementById("queueSidebar").classList.contains("open");
+    if (isOpen) closeQueue();
+    else openQueue();
+}
+
+function openQueue() {
+    const sidebar = document.getElementById("queueSidebar");
+    const backdrop = document.getElementById("queueBackdrop");
+    const toggle = document.getElementById("queueToggle");
+    if (!sidebar || !backdrop || !toggle) return;
+    document.getElementById("contextMenu").style.display = "none";
+    sidebar.classList.add("open");
+    sidebar.setAttribute("aria-hidden", "false");
+    backdrop.classList.add("open");
+    toggle.setAttribute("aria-expanded", "true");
     renderQueue();
 }
 
-function renderQueue() {
-    const list = document.getElementById('queueList');
-    if (colaReproduccion.length === 0) {
-        list.innerHTML = '<div class="empty-queue" style="padding: 20px; text-align: center; color: var(--text-muted);">Cola vacía</div>';
-        return;
+function closeQueue() {
+    const sidebar = document.getElementById("queueSidebar");
+    const backdrop = document.getElementById("queueBackdrop");
+    const toggle = document.getElementById("queueToggle");
+    if (!sidebar || !backdrop || !toggle) return;
+    sidebar.classList.remove("open");
+    sidebar.setAttribute("aria-hidden", "true");
+    backdrop.classList.remove("open");
+    toggle.setAttribute("aria-expanded", "false");
+}
+
+function appendQueueItem(container, song, position, onRemove) {
+    const item = document.createElement("div");
+    item.className = "queue-item";
+
+    if (position !== null) {
+        const number = document.createElement("span");
+        number.className = "queue-position";
+        number.textContent = String(position);
+        item.appendChild(number);
     }
-    list.innerHTML = '';
-    colaReproduccion.forEach((cancion, index) => {
-        const item = document.createElement('div');
-        item.className = 'queue-item';
-        item.innerHTML = `
-            <div class="info">
-                <span class="title">${cancion.titulo}</span>
-                <span class="artist">${cancion.artista || 'Desconocido'}</span>
-            </div>
-            <button class="action-btn-small" onclick="removeFromQueue(${index})">
-                <i class="fa-solid fa-times"></i>
-            </button>
-        `;
-        list.appendChild(item);
-    });
+
+    const info = document.createElement("div");
+    info.className = "info";
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = song.titulo;
+    const artist = document.createElement("span");
+    artist.className = "artist";
+    artist.textContent = song.artista || "Desconocido";
+    info.append(title, artist);
+    item.appendChild(info);
+
+    if (onRemove) {
+        const remove = document.createElement("button");
+        remove.className = "action-btn-small";
+        remove.type = "button";
+        remove.title = "Quitar de la cola";
+        remove.setAttribute("aria-label", `Quitar ${song.titulo} de la cola`);
+        remove.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        remove.addEventListener("click", onRemove);
+        item.appendChild(remove);
+    }
+    container.appendChild(item);
+}
+
+function renderQueue() {
+    const list = document.getElementById("queueList");
+    const upcoming = document.getElementById("upcomingList");
+    if (!list || !upcoming) return;
+
+    list.replaceChildren();
+    upcoming.replaceChildren();
+    document.getElementById("clearQueueButton").disabled =
+        colaReproduccion.length === 0;
+    document.getElementById("queueModeLabel").textContent =
+        modoAleatorio ? "Aleatorio" : "Orden del álbum";
+
+    if (!colaReproduccion.length) {
+        const empty = document.createElement("div");
+        empty.className = "queue-empty";
+        empty.textContent = "No hay canciones añadidas";
+        list.appendChild(empty);
+    } else {
+        colaReproduccion.forEach((song, index) => {
+            appendQueueItem(list, song, index + 1, () => removeFromQueue(index));
+        });
+    }
+
+    const planned = cancionesSiguientes.filter(song =>
+        !colaReproduccion.some(queued => queued.filename === song.filename)
+    ).slice(0, 20);
+    if (!planned.length) {
+        const empty = document.createElement("div");
+        empty.className = "queue-empty";
+        empty.textContent = "No hay más canciones en este álbum";
+        upcoming.appendChild(empty);
+    } else {
+        planned.forEach((song, index) =>
+            appendQueueItem(upcoming, song, index + 1, null)
+        );
+    }
 }
 
 function removeFromQueue(index) {
@@ -588,94 +808,175 @@ function removeFromQueue(index) {
     renderQueue();
 }
 
-function mostrarCola() {
-    toggleQueue();
+function clearQueue() {
+    colaReproduccion = [];
+    renderQueue();
 }
 
-// --- Context Menu ---
+function mostrarCola() {
+    openQueue();
+}
+
+// --- Song context menu and album selector ---
 function showContextMenu(event, song) {
     event.preventDefault();
     event.stopPropagation();
     currentContextSong = song;
-    const menu = document.getElementById('contextMenu');
-
-    // Calculate position
-    let x = event.clientX;
-    let y = event.clientY;
-
-    // Prevent overflow
-    if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
-    if (y + 300 > window.innerHeight) y = window.innerHeight - 310;
-
+    const menu = document.getElementById("contextMenu");
+    const x = Math.max(8, Math.min(event.clientX, window.innerWidth - 210));
+    const y = Math.max(8, Math.min(event.clientY, window.innerHeight - 160));
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
-
-    // Check if submenu would overflow (menu width ~200px + submenu width ~200px)
-    if (x + 400 > window.innerWidth) {
-        menu.classList.add('submenu-left');
-    } else {
-        menu.classList.remove('submenu-left');
-    }
-
-    menu.style.display = 'block';
-
-    loadAlbumsForMenu();
+    menu.style.display = "block";
 }
 
-function loadAlbumsForMenu() {
-    const submenu = document.getElementById('albumSubmenu');
-    submenu.innerHTML = '<div class="menu-item">Cargando...</div>';
+function openAlbumDialog(songs) {
+    cancionesPendientesAlbum = songs.filter(Boolean);
+    const backdrop = document.getElementById("albumDialogBackdrop");
+    const select = document.getElementById("albumSelect");
+    const fields = document.getElementById("createAlbumFields");
+    const input = document.getElementById("newAlbumName");
+    fields.hidden = true;
+    input.value = "";
+    select.disabled = true;
+    select.replaceChildren(new Option("Cargando álbumes...", ""));
+    backdrop.classList.add("open");
+    backdrop.setAttribute("aria-hidden", "false");
 
     fetch("/api/albumes")
-        .then(r => r.json())
-        .then(data => {
-            submenu.innerHTML = '';
-            data.albumes.forEach(album => {
-                const item = document.createElement('div');
-                item.className = 'menu-item';
-                item.innerHTML = `<i class="fa-solid fa-folder"></i> ${album}`;
-                item.onclick = (e) => {
-                    e.stopPropagation();
-                    addToAlbum(album);
-                    document.getElementById('contextMenu').style.display = 'none';
-                };
-                submenu.appendChild(item);
-            });
-        });
-}
-
-function addToAlbum(albumName) {
-    if (!currentContextSong) return;
-
-    fetch('/api/agregar_a_album', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            cancion: currentContextSong.filename,
-            album: albumName
+        .then(response => {
+            if (!response.ok) throw new Error("No se pudieron cargar los álbumes");
+            return response.json();
         })
-    })
-        .then(r => r.json())
         .then(data => {
-            if (data.success) {
-                showToast(`Añadida a ${albumName}`);
-            } else {
-                showToast(data.error, 'error');
+            if (!Array.isArray(data.albumes)) {
+                throw new Error("La respuesta de álbumes no es válida");
             }
+            select.replaceChildren();
+            select.add(new Option("Selecciona un álbum...", ""));
+            (data.albumes || []).forEach(album =>
+                select.add(new Option(album, album))
+            );
+            select.disabled = false;
+            if (!data.albumes?.length) {
+                select.options[0].textContent = "No hay álbumes disponibles";
+            }
+        })
+        .catch(error => {
+            console.error("Error loading albums:", error);
+            select.replaceChildren(new Option("Error al cargar álbumes", ""));
+            showToast(error.message, "error");
         });
 }
 
-// Bind delete action
-document.addEventListener('DOMContentLoaded', () => {
-    const deleteBtn = document.getElementById('ctxDelete');
-    if (deleteBtn) {
-        deleteBtn.onclick = () => {
-            if (currentContextSong) {
-                eliminarCancion(currentContextSong.filename);
-                document.getElementById('contextMenu').style.display = 'none';
+function closeAlbumDialog() {
+    const backdrop = document.getElementById("albumDialogBackdrop");
+    backdrop.classList.remove("open");
+    backdrop.setAttribute("aria-hidden", "true");
+    cancionesPendientesAlbum = [];
+}
+
+async function confirmarAlbum() {
+    const select = document.getElementById("albumSelect");
+    const newAlbumFields = document.getElementById("createAlbumFields");
+    const newAlbumName = document.getElementById("newAlbumName");
+    let albumName = select.value;
+
+    try {
+        if (!newAlbumFields.hidden) {
+            albumName = newAlbumName.value.trim();
+            if (!albumName) {
+                showToast("Escribe el nombre del nuevo álbum", "error");
+                newAlbumName.focus();
+                return;
             }
-        };
+            const createResponse = await fetch("/crear_album", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nombre: albumName })
+            });
+            const createResult = await createResponse.json();
+            if (!createResponse.ok || !createResult.success) {
+                throw new Error(createResult.error || "No se pudo crear el álbum");
+            }
+        } else if (!albumName) {
+            showToast("Selecciona un álbum", "error");
+            return;
+        }
+
+        const results = await Promise.all(cancionesPendientesAlbum.map(song =>
+            fetch("/api/agregar_a_album", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cancion: song.filename, album: albumName })
+            }).then(response => response.json())
+        ));
+        const failed = results.filter(result => !result.success);
+        if (failed.length) {
+            throw new Error(failed[0].error || "No se pudieron añadir todas las canciones");
+        }
+        showToast(`Añadidas ${results.length} canción(es) a ${albumName}`);
+        cargarAlbumes();
+        closeAlbumDialog();
+    } catch (error) {
+        console.error("Error adding songs to album:", error);
+        showToast(error.message || "No se pudo añadir al álbum", "error");
     }
+}
+
+function bindAlbumDialog() {
+    document.getElementById("showCreateAlbum").addEventListener("click", () => {
+        const fields = document.getElementById("createAlbumFields");
+        fields.hidden = !fields.hidden;
+        if (!fields.hidden) document.getElementById("newAlbumName").focus();
+    });
+    document.getElementById("confirmAlbumAdd").addEventListener(
+        "click", confirmarAlbum
+    );
+    document.getElementById("albumDialogBackdrop").addEventListener("click", event => {
+        if (event.target.id === "albumDialogBackdrop") closeAlbumDialog();
+    });
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            closeAlbumDialog();
+            closeQueue();
+        }
+    });
+}
+
+function bindSongContextMenu() {
+    document.getElementById("ctxAddQueue").addEventListener("click", () => {
+        if (currentContextSong) {
+            colaReproduccion.push(currentContextSong);
+            renderQueue();
+            showToast(`Añadida a la cola: ${currentContextSong.titulo}`);
+        }
+        document.getElementById("contextMenu").style.display = "none";
+    });
+    document.getElementById("ctxAddAlbum").addEventListener("click", () => {
+        document.getElementById("contextMenu").style.display = "none";
+        if (currentContextSong) openAlbumDialog([currentContextSong]);
+    });
+    document.getElementById("ctxDelete").addEventListener("click", () => {
+        if (currentContextSong) eliminarCancion(currentContextSong.filename);
+        document.getElementById("contextMenu").style.display = "none";
+    });
+}
+
+function bindQueueControls() {
+    const toggle = document.getElementById("queueToggle");
+    const closeButton = document.getElementById("queueCloseButton");
+    const backdrop = document.getElementById("queueBackdrop");
+    if (toggle) toggle.addEventListener("click", toggleQueue);
+    if (closeButton) closeButton.addEventListener("click", closeQueue);
+    if (backdrop) backdrop.addEventListener("click", closeQueue);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    bindAlbumDialog();
+    bindSongContextMenu();
+    bindQueueControls();
+    renderQueue();
 });
 
 function buscar() {
@@ -731,7 +1032,7 @@ function updateBatchToolbar() {
         toolbar.innerHTML = `
             <span id="selectedCount">0 seleccionada(s)</span>
             <div class="batch-actions">
-                <button onclick="batchAddToAlbum(prompt('Nombre del álbum:'))" class="action-btn-small" title="Añadir a Álbum"><i class="fa-solid fa-folder-plus"></i></button>
+                <button onclick="batchAddToAlbum()" class="action-btn-small" title="Añadir a Álbum"><i class="fa-solid fa-folder-plus"></i></button>
                 <button onclick="batchDelete()" class="action-btn-danger" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
             </div>
         `;
@@ -774,28 +1075,7 @@ function batchDelete() {
         .finally(() => hideLoading());
 }
 
-function batchAddToAlbum(albumName) {
-    if (!albumName) return;
-    if (selectedSongs.size === 0) return;
-
-    showLoading();
-    fetch('/api/batch/add_to_album', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            filenames: Array.from(selectedSongs),
-            album: albumName
-        })
-    })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message);
-                // selectedSongs.clear(); // Removed to persist selection
-                // updateBatchToolbar(); // Removed as selection hasn't changed
-            } else {
-                showToast(data.error, 'error');
-            }
-        })
-        .finally(() => hideLoading());
+function batchAddToAlbum() {
+    const songs = cancionesAlbum.filter(song => selectedSongs.has(song.filename));
+    if (songs.length) openAlbumDialog(songs);
 }

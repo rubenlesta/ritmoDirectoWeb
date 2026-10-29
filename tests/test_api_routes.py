@@ -153,3 +153,51 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json['success'], False)
         self.assertIn('YouTube rechazó', response.json['error'])
+
+    def test_async_download_task_endpoints(self):
+        from unittest.mock import patch
+
+        with patch(
+            'app.routes.api.start_download',
+            return_value='task-123',
+        ) as start_task:
+            response = self.client.post(
+                '/api/downloads',
+                json={'entrada': 'https://example.test/audio'},
+            )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json, {
+            'success': True,
+            'task_id': 'task-123',
+        })
+        start_task.assert_called_once()
+
+        task_status = {
+            'task_id': 'task-123',
+            'state': 'running',
+            'phase': 'downloading',
+            'percent': 42.5,
+            'speed': 1024,
+        }
+        with patch(
+            'app.routes.api.get_download_status',
+            return_value=task_status,
+        ):
+            status_response = self.client.get(
+                '/api/download_status/task-123'
+            )
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.json['percent'], 42.5)
+
+    def test_async_download_task_validates_input_and_unknown_id(self):
+        from unittest.mock import patch
+
+        response = self.client.post('/api/downloads', json={'entrada': ' '})
+        self.assertEqual(response.status_code, 400)
+
+        with patch('app.routes.api.get_download_status', return_value=None):
+            unknown_response = self.client.get(
+                '/api/download_status/missing'
+            )
+        self.assertEqual(unknown_response.status_code, 404)

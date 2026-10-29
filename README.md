@@ -118,7 +118,7 @@ sudo systemctl enable --now ritmodirecto.service ritmodirecto-stats.service
 sudo systemctl status ritmodirecto.service ritmodirecto-stats.service
 ```
 
-Consulta logs con `sudo journalctl -u ritmodirecto -u ritmodirecto-stats -f`. Ambos procesos se reinician tras una caída y escuchan solo en `127.0.0.1`; coloca Caddy o Nginx delante para HTTPS, proxy y acceso público. La descarga síncrona puede ocupar un worker hasta 30 minutos; migra las descargas a una cola de trabajos antes de desplegar con mucho tráfico. Si la instalación no está en `/opt/ritmodirecto` o usa otra cuenta, adapta `User`, `Group`, `WorkingDirectory`, `EnvironmentFile` y `ExecStart` de las unidades antes de instalarlas.
+Consulta logs con `sudo journalctl -u ritmodirecto -u ritmodirecto-stats -f`. Ambos procesos se reinician tras una caída y escuchan solo en `127.0.0.1`; coloca Caddy o Nginx delante para HTTPS, proxy y acceso público. El estado del progreso de descargas en segundo plano vive en memoria del proceso: conserva `--workers 1` en el servicio principal, o cambia el almacenamiento a Redis/base de datos compartida antes de usar varios workers/instancias. La descarga síncrona del endpoint antiguo puede ocupar un worker hasta 30 minutos; migra por completo a trabajos en segundo plano antes de desplegar con mucho tráfico. Si la instalación no está en `/opt/ritmodirecto` o usa otra cuenta, adapta `User`, `Group`, `WorkingDirectory`, `EnvironmentFile` y `ExecStart` de las unidades antes de instalarlas.
 
 ## Acceso desde un móvil
 

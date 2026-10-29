@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, send_from_directory, current_app
 from app.services.music_service import MusicDownloadError, MusicService
+from app.services.download_manager import get_download_status, start_download
 from app.config import Config
 from app.models import db, Album
 import os
@@ -44,6 +45,30 @@ def download():
             "success": False,
             "error": "Error interno al procesar la descarga.",
         }), 500
+
+
+@api_bp.route("/api/downloads", methods=["POST"])
+def start_download_task():
+    data = request.get_json(silent=True) or {}
+    entry = (data.get("entrada") or "").strip()
+    if not entry:
+        return jsonify({"success": False, "error": "Entrada vacía"}), 400
+
+    task_id = start_download(
+        current_app._get_current_object(),
+        entry,
+        current_app.config["MP3_FOLDER"],
+    )
+    return jsonify({"success": True, "task_id": task_id}), 202
+
+
+@api_bp.route("/api/download_status/<task_id>")
+def download_status(task_id):
+    task = get_download_status(task_id)
+    if not task:
+        return jsonify({"success": False, "error": "Tarea no encontrada"}), 404
+    return jsonify(task)
+
 
 @api_bp.route("/reproducir")
 def play():
